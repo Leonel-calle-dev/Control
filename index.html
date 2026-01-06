@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Control de Asistencia</title>
+
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+
+<style>
+:root {
+  --bg-main: #0f172a;
+  --bg-card: #020617;
+  --border-soft: #1e293b;
+  --text-main: #e5e7eb;
+  --text-muted: #94a3b8;
+}
+
+/* ===== GLOBAL ===== */
+body {
+  background: radial-gradient(circle at top, #1e293b, #020617);
+  min-height: 100vh;
+  padding: 20px;
+  color: var(--text-main);
+}
+
+.main-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 20px 40px rgba(0,0,0,.6);
+}
+
+/* ===== HEAD ===== */
+h1, h5 {
+  color: var(--text-main);
+}
+
+.text-muted {
+  color: var(--text-muted)!important;
+}
+
+/* ===== STATS ===== */
+.stat-card {
+  background: #020617;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+/* ===== TABS ===== */
+.nav-tabs {
+  border-bottom: 1px solid var(--border-soft);
+}
+.nav-tabs .nav-link {
+  color: var(--text-muted);
+}
+.nav-tabs .nav-link.active {
+  background: transparent;
+  border-color: transparent transparent #3b82f6;
+  color: #3b82f6;
+}
+
+/* ===== PERSON CARD ===== */
+.person-card {
+  background: #020617;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  padding: 15px;
+  margin-bottom: 15px;
+}
+.person-card:hover {
+  box-shadow: 0 10px 25px rgba(0,0,0,.6);
+}
+
+/* ===== STATUS ===== */
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: .8rem;
+  font-weight: 600;
+}
+.status-present { background:#064e3b;color:#6ee7b7; }
+.status-absent { background:#7c2d12;color:#fdba74; }
+.status-not-arrived { background:#334155;color:#cbd5f5; }
+
+/* ===== INPUTS ===== */
+.form-control, .input-group-text {
+  background: #020617;
+  border: 1px solid var(--border-soft);
+  color: var(--text-main);
+}
+.form-control::placeholder {
+  color: var(--text-muted);
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  border-radius: 10px;
+}
+.btn-action {
+  min-width: 110px;
+}
+
+/* Export buttons */
+.btn-export-json {
+  background:#2563eb;
+  color:white;
+}
+.btn-export-excel {
+  background:#15803d;
+  color:white;
+}
+.btn-import {
+  background:#7c3aed;
+  color:white;
+}
+
+/* Hover */
+.btn-export-json:hover,
+.btn-export-excel:hover,
+.btn-import:hover {
+  filter: brightness(1.1);
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+<div class="main-card p-4">
+
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+  <h1 class="mb-0">
+    <i class="fas fa-clipboard-check text-primary"></i>
+    Control de Asistencia
+  </h1>
+
+  <div class="d-flex gap-2">
+    <button class="btn btn-export-json" onclick="exportToJSON()">
+      <i class="fas fa-file-code"></i> JSON
+    </button>
+
+    <button class="btn btn-export-excel" onclick="exportToExcel()">
+      <i class="fas fa-file-excel"></i> Excel
+    </button>
+
+    <label class="btn btn-import mb-0">
+      <i class="fas fa-upload"></i> Importar
+      <input type="file" id="excelFile" accept=".xlsx,.xls" hidden onchange="importExcel(event)">
+    </label>
+  </div>
+</div>
+<!-- RESTO DE TU HTML Y JS PERMANECE IGUAL -->
+<!-- Estadísticas -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="stat-card bg-primary bg-opacity-10">
+                        <h3 class="text-primary mb-0" id="totalPersons">0</h3>
+                        <small class="text-muted">Total Registrados</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card bg-success bg-opacity-10">
+                        <h3 class="text-success mb-0" id="totalPresent">0</h3>
+                        <small class="text-muted">Presentes</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card bg-warning bg-opacity-10">
+                        <h3 class="text-warning mb-0" id="totalAbsent">0</h3>
+                        <small class="text-muted">Han Salido</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="stat-card bg-secondary bg-opacity-10">
+                        <h3 class="text-secondary mb-0" id="totalNotArrived">0</h3>
+                        <small class="text-muted">No Han Llegado</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pestañas -->
+            <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="control-tab" data-bs-toggle="tab" data-bs-target="#control" type="button">
+                        <i class="fas fa-users"></i> Control
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="register-tab" data-bs-toggle="tab" data-bs-target="#register" type="button">
+                        <i class="fas fa-user-plus"></i> Registrar
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button">
+                        <i class="fas fa-history"></i> Historial
+                    </button>
+                </li>
+            </ul>
+
+            <!-- Contenido de pestañas -->
+            <div class="tab-content" id="myTabContent">
+                <!-- Panel de Control -->
+                <div class="tab-pane fade show active" id="control">
+                    <div class="mb-4">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control form-control-lg" 
+                                   id="searchInput" 
+                                   placeholder="Buscar por nombre o CI..."
+                                   onkeyup="searchPerson()">
+                            <button class="btn btn-outline-secondary" onclick="clearSearch()">
+                                <i class="fas fa-times"></i> Limpiar
+                            </button>
+                        </div>
+                    </div>
+                    <div id="personsList"></div>
+                </div>
+
+                <!-- Formulario de Registro -->
+                <div class="tab-pane fade" id="register">
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h5 class="card-title mb-4">Registrar Nueva Persona</h5>
+                                    <div class="mb-3">
+                                        <label class="form-label">Nombre Completo *</label>
+                                        <input type="text" class="form-control" id="inputName" placeholder="Ej: Juan Pérez González">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">CI (Cédula de Identidad) *</label>
+                                        <input type="text" class="form-control" id="inputCI" placeholder="Ej: 12345678">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Fecha de Nacimiento *</label>
+                                        <input type="date" class="form-control" id="inputBirthDate">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Celular *</label>
+                                        <input type="tel" class="form-control" id="inputPhone" placeholder="Ej: +591 70123456">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Correo Electrónico *</label>
+                                        <input type="email" class="form-control" id="inputEmail" placeholder="ejemplo@correo.com">
+                                    </div>
+                                    <button class="btn btn-primary w-100" onclick="addPerson()">
+                                        <i class="fas fa-user-plus"></i> Registrar Persona
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Historial -->
+                <div class="tab-pane fade" id="history">
+                    <div id="historyList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        let people = [];
+        let attendanceRecords = [];
+        let nextNumber = 1;
+        let filteredPeople = [];
+
+        // Cargar datos al iniciar
+        loadData();
+
+        function loadData() {
+            const savedPeople = localStorage.getItem('attendance-people');
+            const savedRecords = localStorage.getItem('attendance-records');
+            const savedNumber = localStorage.getItem('next-number');
+            
+            if (savedPeople) people = JSON.parse(savedPeople);
+            if (savedRecords) attendanceRecords = JSON.parse(savedRecords);
+            if (savedNumber) nextNumber = parseInt(savedNumber);
+            
+            filteredPeople = [...people];
+            updateUI();
+        }
+
+        function saveData() {
+            localStorage.setItem('attendance-people', JSON.stringify(people));
+            localStorage.setItem('attendance-records', JSON.stringify(attendanceRecords));
+            localStorage.setItem('next-number', nextNumber.toString());
+        }
+
+        function addPerson() {
+            const name = document.getElementById('inputName').value.trim();
+            const ci = document.getElementById('inputCI').value.trim();
+            const birthDate = document.getElementById('inputBirthDate').value;
+            const phone = document.getElementById('inputPhone').value.trim();
+            const email = document.getElementById('inputEmail').value.trim();
+
+            if (!name || !ci || !birthDate || !phone || !email) {
+                alert('Por favor complete todos los campos obligatorios');
+                return;
+            }
+
+            const person = {
+                numero: nextNumber++,
+                nombreCompleto: name,
+                ci: ci,
+                fechaNacimiento: birthDate,
+                celular: phone,
+                correoElectronico: email,
+                registeredAt: new Date().toISOString()
+            };
+
+            people.push(person);
+            saveData();
+            
+            // Limpiar formulario
+            document.getElementById('inputName').value = '';
+            document.getElementById('inputCI').value = '';
+            document.getElementById('inputBirthDate').value = '';
+            document.getElementById('inputPhone').value = '';
+            document.getElementById('inputEmail').value = '';
+            
+            filteredPeople = [...people];
+            updateUI();
+            
+            // Cambiar a la pestaña de control
+            document.getElementById('control-tab').click();
+            
+            alert('Persona registrada exitosamente');
+        }
+
+        function registerEntry(ci) {
+            const record = {
+                id: Date.now().toString(),
+                ci: ci,
+                type: 'entry',
+                timestamp: new Date().toISOString()
+            };
+            attendanceRecords.push(record);
+            saveData();
+            updateUI();
+        }
+
+        function registerExit(ci) {
+            const record = {
+                id: Date.now().toString(),
+                ci: ci,
+                type: 'exit',
+                timestamp: new Date().toISOString()
+            };
+            attendanceRecords.push(record);
+            saveData();
+            updateUI();
+        }
+
+        function getPersonStatus(ci) {
+            const personRecords = attendanceRecords
+                .filter(r => r.ci === ci)
+                .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            if (personRecords.length === 0) return 'not-arrived';
+            return personRecords[0].type === 'entry' ? 'present' : 'absent';
+        }
+
+        function updateUI() {
+            // Actualizar estadísticas
+            const stats = {
+                total: people.length,
+                present: people.filter(p => getPersonStatus(p.ci) === 'present').length,
+                absent: people.filter(p => getPersonStatus(p.ci) === 'absent').length,
+                notArrived: people.filter(p => getPersonStatus(p.ci) === 'not-arrived').length
+            };
+
+            document.getElementById('totalPersons').textContent = stats.total;
+            document.getElementById('totalPresent').textContent = stats.present;
+            document.getElementById('totalAbsent').textContent = stats.absent;
+            document.getElementById('totalNotArrived').textContent = stats.notArrived;
+
+            // Actualizar lista de personas
+            updatePersonsList();
+            updateHistoryList();
+        }
+
+        function searchPerson() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            
+            if (searchTerm === '') {
+                filteredPeople = [...people];
+            } else {
+                filteredPeople = people.filter(person => 
+                    person.nombreCompleto.toLowerCase().includes(searchTerm) ||
+                    person.ci.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            updatePersonsList();
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            filteredPeople = [...people];
+            updatePersonsList();
+        }
+
+        function updatePersonsList() {
+            const container = document.getElementById('personsList');
+            const displayPeople = filteredPeople.length > 0 || document.getElementById('searchInput')?.value 
+                ? filteredPeople 
+                : people;
+            
+            if (people.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-users fa-4x text-muted mb-3"></i>
+                        <p class="text-muted">No hay personas registradas</p>
+                        <button class="btn btn-primary" onclick="document.getElementById('register-tab').click()">
+                            Registrar Primera Persona
+                        </button>
+                    </div>
+                `;
+                return;
+            }
+
+            if (displayPeople.length === 0) {
+                container.innerHTML = `
+                    <div class="alert alert-warning text-center">
+                        <i class="fas fa-search fa-2x mb-2"></i>
+                        <p class="mb-0">No se encontraron resultados para tu búsqueda</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = displayPeople.map(person => {
+                const status = getPersonStatus(person.ci);
+                const lastRecord = attendanceRecords
+                    .filter(r => r.ci === person.ci)
+                    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))[0];
+
+                let statusBadge = '';
+                let statusText = '';
+                let entryDisabled = '';
+                let exitDisabled = '';
+
+                if (status === 'present') {
+                    statusBadge = 'status-present';
+                    statusText = '✓ Presente';
+                    entryDisabled = 'disabled';
+                } else if (status === 'absent') {
+                    statusBadge = 'status-absent';
+                    statusText = 'Ha Salido';
+                    exitDisabled = 'disabled';
+                } else {
+                    statusBadge = 'status-not-arrived';
+                    statusText = 'No Ha Llegado';
+                    exitDisabled = 'disabled';
+                }
+
+                return `
+                    <div class="person-card">
+                        <div class="row align-items-center">
+                            <div class="col-md-1">
+                                <h4 class="text-primary mb-0">#${person.numero}</h4>
+                            </div>
+                            <div class="col-md-7">
+                                <h5 class="mb-1">${person.nombreCompleto}</h5>
+                                <p class="mb-1 text-muted small">
+                                    <i class="fas fa-id-card"></i> CI: ${person.ci} | 
+                                    <i class="fas fa-birthday-cake"></i> ${formatDate(person.fechaNacimiento)}
+                                </p>
+                                <p class="mb-1 text-muted small">
+                                    <i class="fas fa-phone"></i> ${person.celular} | 
+                                    <i class="fas fa-envelope"></i> ${person.correoElectronico}
+                                </p>
+                                ${lastRecord ? `
+                                    <p class="mb-0 text-muted small">
+                                        <i class="fas fa-clock"></i> Último registro: ${formatDateTime(lastRecord.timestamp)} 
+                                        (${lastRecord.type === 'entry' ? 'Entrada' : 'Salida'})
+                                    </p>
+                                ` : ''}
+                            </div>
+                            <div class="col-md-2 text-center">
+                                <span class="status-badge ${statusBadge}">${statusText}</span>
+                            </div>
+                            <div class="col-md-2 text-end">
+                                <button class="btn btn-success btn-sm btn-action mb-1" 
+                                        onclick="registerEntry('${person.ci}')" ${entryDisabled}>
+                                    <i class="fas fa-sign-in-alt"></i> Entrada
+                                </button>
+                                <button class="btn btn-danger btn-sm btn-action" 
+                                        onclick="registerExit('${person.ci}')" ${exitDisabled}>
+                                    <i class="fas fa-sign-out-alt"></i> Salida
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateHistoryList() {
+            const container = document.getElementById('historyList');
+            
+            if (attendanceRecords.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="fas fa-history fa-4x text-muted mb-3"></i>
+                        <p class="text-muted">No hay registros de asistencia</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const sortedRecords = [...attendanceRecords].sort((a, b) => 
+                new Date(b.timestamp) - new Date(a.timestamp)
+            );
+
+            container.innerHTML = sortedRecords.map(record => {
+                const person = people.find(p => p.ci === record.ci);
+                return `
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-3">
+                        <div>
+                            <h6 class="mb-1">${person ? person.nombreCompleto : 'Desconocido'}</h6>
+                            <small class="text-muted">CI: ${record.ci}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge ${record.type === 'entry' ? 'bg-success' : 'bg-danger'}">
+                                ${record.type === 'entry' ? 'Entrada' : 'Salida'}
+                            </span>
+                            <br>
+                            <small class="text-muted">${formatDateTime(record.timestamp)}</small>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-ES');
+        }
+
+        function formatDateTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString('es-ES', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function exportToJSON() {
+            const data = {
+                personas: people,
+                registros: attendanceRecords,
+                fechaExportacion: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `asistencia-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportToExcel() {
+            const wb = XLSX.utils.book_new();
+            
+            // Hoja de personas
+            const wsData = people.map(p => ({
+                'N°': p.numero,
+                'Nombre completo': p.nombreCompleto,
+                'CI': p.ci,
+                'Fecha de nacimiento': formatDate(p.fechaNacimiento),
+                'Celular': p.celular,
+                'Correo electrónico': p.correoElectronico
+            }));
+            const ws = XLSX.utils.json_to_sheet(wsData);
+            XLSX.utils.book_append_sheet(wb, ws, 'Personas');
+            
+            // Hoja de registros
+            const wsRecords = attendanceRecords.map(r => {
+                const person = people.find(p => p.ci === r.ci);
+                return {
+                    'CI': r.ci,
+                    'Nombre': person ? person.nombreCompleto : 'Desconocido',
+                    'Tipo': r.type === 'entry' ? 'Entrada' : 'Salida',
+                    'Fecha y Hora': formatDateTime(r.timestamp)
+                };
+            });
+            const wsRec = XLSX.utils.json_to_sheet(wsRecords);
+            XLSX.utils.book_append_sheet(wb, wsRec, 'Registros');
+            
+            XLSX.writeFile(wb, `asistencia-${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
+
+        function importExcel(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                    if (jsonData.length === 0) {
+                        alert('El archivo Excel está vacío');
+                        return;
+                    }
+
+                    // Mapear los datos del Excel
+                    jsonData.forEach(row => {
+                        const person = {
+                            numero: nextNumber++,
+                            nombreCompleto: row['Nombre completo'] || row['Nombre'] || '',
+                            ci: (row['CI'] || row['Cedula'] || '').toString(),
+                            fechaNacimiento: row['Fecha de nacimiento'] || row['Fecha Nacimiento'] || '',
+                            celular: (row['Celular'] || row['Telefono'] || '').toString(),
+                            correoElectronico: row['Correo electrónico'] || row['Email'] || row['Correo'] || '',
+                            registeredAt: new Date().toISOString()
+                        };
+
+                        if (person.nombreCompleto && person.ci) {
+                            people.push(person);
+                        }
+                    });
+
+                    saveData();
+                    updateUI();
+                    alert(`Se importaron ${jsonData.length} personas exitosamente`);
+                    
+                    // Limpiar el input y resetear filtro
+                    event.target.value = '';
+                    filteredPeople = [...people];
+                } catch (error) {
+                    alert('Error al importar el archivo Excel: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>
