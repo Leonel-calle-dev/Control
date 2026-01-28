@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -78,6 +77,12 @@ body{
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.time-info {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 5px;
+}
 </style>
 </head>
 
@@ -98,11 +103,6 @@ body{
 <button class="btn btn-primary" onclick="exportBaseJSON()">
 <i class="fas fa-file-code"></i> Exportar JSON
 </button>
-
-<label class="btn btn-success mb-0">
-<i class="fas fa-file-excel"></i> Importar Excel
-<input type="file" accept=".xlsx,.xls" hidden onchange="importExcel(event)">
-</label>
 
 <button class="btn btn-info" onclick="exportAttendanceReport()">
 <i class="fas fa-file-alt"></i> Informe
@@ -158,12 +158,11 @@ body{
       </div>
     </div>
   </div>
-  <div id="dateFilterInfo" class="mt-2 text-muted small"></div>
 </div>
 
 <!-- BUSCADOR -->
 <div class="mb-3">
-  <input id="searchInput" class="form-control" placeholder="Buscar por nombre o CI" 
+  <input id="searchInput" class="form-control" placeholder="Buscar por nombre" 
          oninput="filterPeople(this.value)">
 </div>
 
@@ -177,11 +176,8 @@ body{
 <div class="card bg-dark text-light">
 <div class="card-body">
 <h5>Registrar Persona</h5>
-<input class="form-control mb-2" id="inputName" placeholder="Nombre completo">
-<input class="form-control mb-2" id="inputCI" placeholder="CI">
-<input class="form-control mb-2" type="date" id="inputBirthDate">
-<input class="form-control mb-2" id="inputPhone" placeholder="Celular">
-<input class="form-control mb-3" id="inputEmail" placeholder="Correo">
+<p class="text-muted small">Solo ingresa el nombre. La fecha y hora se registran automáticamente.</p>
+<input class="form-control mb-3" id="inputName" placeholder="Nombre completo">
 <button class="btn btn-primary w-100" onclick="addPerson()">Registrar</button>
 </div>
 </div>
@@ -233,28 +229,44 @@ function renderPersons(list) {
             status === "present" ? "Presente" : 
             status === "absent" ? "Salió" : "No llegó";
 
-        const formattedBirth = formatDateDisplay(person.birthDate);
+        // Formatear fecha de registro
+        const registeredDate = formatDateTime(person.registeredAt);
+        
+        // Formatear entrada
+        let entryInfo = "";
+        if (person.entryTime) {
+            entryInfo = `<div class="time-info"><i class="fas fa-sign-in-alt text-success"></i> Entrada: ${formatDateTime(person.entryTime)}</div>`;
+        }
+        
+        // Formatear salida
+        let exitInfo = "";
+        if (person.exitTime) {
+            exitInfo = `<div class="time-info"><i class="fas fa-sign-out-alt text-warning"></i> Salida: ${formatDateTime(person.exitTime)}</div>`;
+        }
 
         const card = document.createElement("div");
         card.className = "person-card";
         card.innerHTML = `
-            <div class="d-flex justify-content-between align-items-center">
+            <div class="d-flex justify-content-between align-items-start">
                 <div>
-                    <strong>${index + 1}. ${person.name}</strong><br>
-                    <small class="text-muted">CI: ${person.ci} | ${formattedBirth}</small><br>
-                    <small>${person.phone || "-"} | ${person.email || "-"}</small>
+                    <strong>${index + 1}. ${person.name}</strong>
+                    <div class="time-info"><i class="fas fa-calendar-plus text-info"></i> Registrado: ${registeredDate}</div>
+                    ${entryInfo}
+                    ${exitInfo}
                 </div>
                 <div class="text-end">
                     <span class="status-badge ${statusClass}">${statusText}</span><br>
                     <div class="btn-group mt-2" role="group">
-                        <button class="btn btn-sm btn-success" onclick="updateStatus(${index}, 'present')">
-                            <i class="fas fa-check"></i>
+                        <button class="btn btn-sm btn-success" onclick="markEntry(${index})" 
+                                ${status === "present" ? 'disabled' : ''}>
+                            <i class="fas fa-sign-in-alt"></i> Entrada
                         </button>
-                        <button class="btn btn-sm btn-warning" onclick="updateStatus(${index}, 'absent')">
-                            <i class="fas fa-sign-out-alt"></i>
+                        <button class="btn btn-sm btn-warning" onclick="markExit(${index})"
+                                ${status !== "present" ? 'disabled' : ''}>
+                            <i class="fas fa-sign-out-alt"></i> Salida
                         </button>
-                        <button class="btn btn-sm btn-secondary" onclick="updateStatus(${index}, 'not-arrived')">
-                            <i class="fas fa-clock"></i>
+                        <button class="btn btn-sm btn-danger" onclick="deletePerson(${index})">
+                            <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </div>
@@ -264,31 +276,58 @@ function renderPersons(list) {
     });
 }
 
-// Función auxiliar para mostrar fechas legibles
-function formatDateDisplay(dateStr) {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return dateStr;
-    return date.toLocaleDateString("es-ES");
+// Función auxiliar para mostrar fechas y horas legibles
+function formatDateTime(isoString) {
+    if (!isoString) return "-";
+    const date = new Date(isoString);
+    if (isNaN(date.getTime())) return isoString;
+    return date.toLocaleString("es-ES", {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
 }
 
 // ============================
-// Actualizar estado de asistencia
+// Marcar entrada
 // ============================
-
-function updateStatus(index, status) {
+function markEntry(index) {
     const now = new Date().toISOString();
-
-    if (status === "present") {
-        if (peopleBase[index].status !== "present") {
-            peopleBase[index].entryTime = now;
-        }
-    }
-
-    peopleBase[index].status = status;
+    peopleBase[index].entryTime = now;
+    peopleBase[index].status = "present";
+    peopleBase[index].exitTime = null; // Limpiar salida previa si existe
+    
     saveToLocalStorage();
     renderFilteredPersons();
     updateStats();
+}
+
+// ============================
+// Marcar salida
+// ============================
+function markExit(index) {
+    const now = new Date().toISOString();
+    peopleBase[index].exitTime = now;
+    peopleBase[index].status = "absent";
+    
+    saveToLocalStorage();
+    renderFilteredPersons();
+    updateStats();
+}
+
+// ============================
+// Eliminar persona
+// ============================
+function deletePerson(index) {
+    if (confirm(`¿Está seguro de eliminar a ${peopleBase[index].name}?`)) {
+        peopleBase.splice(index, 1);
+        saveToLocalStorage();
+        renderFilteredPersons();
+        updateStats();
+    }
 }
 
 // ============================
@@ -297,8 +336,7 @@ function updateStatus(index, status) {
 function filterPeople(query) {
     const lowerQuery = query.toLowerCase().trim();
     const filtered = peopleBase.filter(p => 
-        p.name.toLowerCase().includes(lowerQuery) ||
-        p.ci.toLowerCase().includes(lowerQuery)
+        p.name.toLowerCase().includes(lowerQuery)
     );
     renderPersons(filtered);
 }
@@ -325,7 +363,7 @@ function filterPeopleByDate(targetDate) {
     target.setHours(0, 0, 0, 0);
     
     return peopleBase.filter(p => {
-        if (p.status === "present" && p.entryTime) {
+        if (p.entryTime) {
             const entryDate = new Date(p.entryTime);
             entryDate.setHours(0, 0, 0, 0);
             return entryDate.getTime() === target.getTime();
@@ -340,7 +378,64 @@ function filterPeopleByDate(targetDate) {
 function clearDateFilter() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById("reportDate").value = today;
-    document.getElementById("dateFilterInfo").innerHTML = "";
+}
+
+// ============================
+// Registrar persona manualmente
+// ============================
+function addPerson() {
+    const name = document.getElementById("inputName").value.trim();
+
+    if (!name) {
+        alert("Por favor, ingrese el nombre completo.");
+        return;
+    }
+
+    const now = new Date().toISOString();
+
+    const newPerson = {
+        name,
+        registeredAt: now, // Fecha y hora de registro
+        entryTime: null,
+        exitTime: null,
+        status: "not-arrived"
+    };
+
+    peopleBase.push(newPerson);
+    saveToLocalStorage();
+    renderFilteredPersons();
+    updateStats();
+
+    // Limpiar
+    document.getElementById("inputName").value = "";
+
+    // Cambiar pestaña
+    const controlTab = new bootstrap.Tab(document.querySelector('.nav-link[data-bs-target="#control"]'));
+    controlTab.show();
+    
+    alert(`✅ ${name} registrado exitosamente.`);
+}
+
+// ============================
+// Guardar en localStorage
+// ============================
+function saveToLocalStorage() {
+    localStorage.setItem("attendanceBase", JSON.stringify(peopleBase));
+}
+
+// ============================
+// Actualizar estadísticas
+// ============================
+function updateStats() {
+    const total = peopleBase.length;
+    const present = peopleBase.filter(p => p.status === "present").length;
+    const absent = peopleBase.filter(p => p.status === "absent").length;
+    const notArrived = total - present - absent;
+
+    document.getElementById("totalPersons").textContent = total;
+    document.getElementById("totalPresent").textContent = present;
+    document.getElementById("totalAbsent").textContent = absent;
+    document.getElementById("totalNotArrived").textContent = notArrived;
 }
 
 // ============================
@@ -369,7 +464,7 @@ async function generateDateReport() {
     const formattedDate = new Date(selectedDate).toLocaleDateString('es-ES');
     
     // TÍTULO
-    worksheet.mergeCells('A1:C1');
+    worksheet.mergeCells('A1:D1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = `LISTA DE ASISTENCIA - ${formattedDate}`;
     titleCell.font = { bold: true, size: 14 };
@@ -386,7 +481,7 @@ async function generateDateReport() {
         right: { style: 'thin' }
     };
     
-    ['B1', 'C1'].forEach(cell => {
+    ['B1', 'C1', 'D1'].forEach(cell => {
         const c = worksheet.getCell(cell);
         c.fill = {
             type: 'pattern',
@@ -402,7 +497,7 @@ async function generateDateReport() {
     });
     
     // ENCABEZADOS
-    const headers = ['Nombre completo', 'CI', 'Fecha y hora de ingreso'];
+    const headers = ['Nombre completo', 'Hora de entrada', 'Hora de salida', 'Estado'];
     worksheet.getRow(2).values = headers;
     
     headers.forEach((header, index) => {
@@ -425,19 +520,23 @@ async function generateDateReport() {
     // DATOS
     let row = 3;
     filteredPeople.forEach(p => {
-        const date = new Date(p.entryTime);
-        const ingreso = date.toLocaleString("es-ES", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
+        const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleString("es-ES", {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit"
-        });
+        }) : "-";
         
-        worksheet.getRow(row).values = [p.name, p.ci, ingreso];
+        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleString("es-ES", {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        }) : "-";
         
-        [1, 2, 3].forEach(col => {
+        const estado = p.status === "present" ? "Presente" : p.status === "absent" ? "Salió" : "No llegó";
+        
+        worksheet.getRow(row).values = [p.name, entryTime, exitTime, estado];
+        
+        [1, 2, 3, 4].forEach(col => {
             const cell = worksheet.getCell(row, col);
             cell.border = {
                 top: { style: 'thin' },
@@ -453,12 +552,13 @@ async function generateDateReport() {
     // RESUMEN
     const summaryRow = row + 1;
     worksheet.getRow(summaryRow).values = [
-        `TOTAL PRESENTES: ${filteredPeople.length}`,
+        `TOTAL: ${filteredPeople.length}`,
+        '',
         '',
         ''
     ];
     
-    [1, 2, 3].forEach(col => {
+    [1, 2, 3, 4].forEach(col => {
         const cell = worksheet.getCell(summaryRow, col);
         cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -476,8 +576,9 @@ async function generateDateReport() {
     });
     
     worksheet.getColumn(1).width = 35;
-    worksheet.getColumn(2).width = 15;
-    worksheet.getColumn(3).width = 25;
+    worksheet.getColumn(2).width = 20;
+    worksheet.getColumn(3).width = 20;
+    worksheet.getColumn(4).width = 15;
     
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -511,27 +612,26 @@ function sendDateReportByWhatsApp() {
     
     let message = `📄 *INFORME DE ASISTENCIA*\n`;
     message += `📅 *Fecha:* ${formattedDate}\n\n`;
-    message += `✅ *Total Presentes:* ${filteredPeople.length}\n\n`;
+    message += `✅ *Total:* ${filteredPeople.length}\n\n`;
     
-    const MAX = 15;
-    const list = filteredPeople.slice(0, MAX);
-    
-    list.forEach(p => {
-        const date = new Date(p.entryTime);
-        const ingreso = date.toLocaleString("es-ES", {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
+    filteredPeople.forEach((p, idx) => {
+        const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleString("es-ES", {
             hour: '2-digit',
             minute: '2-digit'
-        });
+        }) : "-";
         
-        message += `👤 *${p.name}*\n   CI: ${p.ci}\n   🕒 ${ingreso}\n\n`;
+        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleString("es-ES", {
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : "-";
+        
+        message += `${idx + 1}. *${p.name}*\n`;
+        message += `   🕐 Entrada: ${entryTime}`;
+        if (exitTime !== "-") {
+            message += ` | Salida: ${exitTime}`;
+        }
+        message += `\n\n`;
     });
-    
-    if (filteredPeople.length > MAX) {
-        message += `... y ${filteredPeople.length - MAX} más.\n`;
-    }
     
     message += `\n📊 Generado: ${new Date().toLocaleString("es-ES")}`;
     
@@ -585,8 +685,8 @@ async function generateDatePDF() {
     // Encabezados
     doc.setFont(undefined, 'bold');
     doc.text('Nombre', 20, y);
-    doc.text('CI', 120, y);
-    doc.text('Hora de Ingreso', 160, y);
+    doc.text('Entrada', 120, y);
+    doc.text('Salida', 160, y);
     
     y += 7;
     doc.line(20, y, 190, y);
@@ -600,17 +700,21 @@ async function generateDatePDF() {
             y = 20;
         }
         
-        const date = new Date(p.entryTime);
-        const ingreso = date.toLocaleTimeString("es-ES", {
+        const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleTimeString("es-ES", {
             hour: "2-digit",
             minute: "2-digit"
-        });
+        }) : "-";
         
-        const nombre = p.name.length > 35 ? p.name.substring(0, 32) + '...' : p.name;
+        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleTimeString("es-ES", {
+            hour: "2-digit",
+            minute: "2-digit"
+        }) : "-";
+        
+        const nombre = p.name.length > 30 ? p.name.substring(0, 27) + '...' : p.name;
         
         doc.text(nombre, 20, y);
-        doc.text(p.ci, 120, y);
-        doc.text(ingreso, 160, y);
+        doc.text(entryTime, 120, y);
+        doc.text(exitTime, 160, y);
         
         y += 7;
     });
@@ -620,179 +724,9 @@ async function generateDatePDF() {
     doc.line(20, y, 190, y);
     y += 7;
     doc.setFont(undefined, 'bold');
-    doc.text(`Total Presentes: ${filteredPeople.length}`, 20, y);
+    doc.text(`Total: ${filteredPeople.length}`, 20, y);
     
     doc.save(`Asistencia_${selectedDate}.pdf`);
-}
-
-// ============================
-// Registrar persona manualmente
-// ============================
-function addPerson() {
-    const name = document.getElementById("inputName").value.trim();
-    const ci = document.getElementById("inputCI").value.trim();
-    const birthDate = document.getElementById("inputBirthDate").value;
-    const phone = document.getElementById("inputPhone").value.trim();
-    const email = document.getElementById("inputEmail").value.trim();
-
-    if (!name || !ci || !birthDate) {
-        alert("Por favor, complete Nombre, CI y Fecha de nacimiento.");
-        return;
-    }
-
-    if (peopleBase.some(p => p.ci === ci)) {
-        alert("Ya existe una persona con ese CI.");
-        return;
-    }
-
-    const newPerson = {
-        name,
-        ci,
-        birthDate,
-        phone: phone || "-",
-        email: email || "-",
-        status: "not-arrived"
-    };
-
-    peopleBase.push(newPerson);
-    saveToLocalStorage();
-    renderFilteredPersons();
-    updateStats();
-
-    document.getElementById("inputName").value = "";
-    document.getElementById("inputCI").value = "";
-    document.getElementById("inputBirthDate").value = "";
-    document.getElementById("inputPhone").value = "";
-    document.getElementById("inputEmail").value = "";
-
-    const controlTab = new bootstrap.Tab(document.querySelector('.nav-link[data-bs-target="#control"]'));
-    controlTab.show();
-}
-
-// ============================
-// Guardar en localStorage
-// ============================
-function saveToLocalStorage() {
-    localStorage.setItem("attendanceBase", JSON.stringify(peopleBase));
-}
-
-// ============================
-// Actualizar estadísticas
-// ============================
-function updateStats() {
-    const total = peopleBase.length;
-    const present = peopleBase.filter(p => p.status === "present").length;
-    const absent = peopleBase.filter(p => p.status === "absent").length;
-    const notArrived = total - present - absent;
-
-    document.getElementById("totalPersons").textContent = total;
-    document.getElementById("totalPresent").textContent = present;
-    document.getElementById("totalAbsent").textContent = absent;
-    document.getElementById("totalNotArrived").textContent = notArrived;
-}
-
-// ============================
-// Conversión segura de fecha de Excel
-// ============================
-function excelDateToJSDate(serial) {
-    const epoch = Date.UTC(1899, 11, 30);
-    if (serial < 60) {
-        serial = serial + 1;
-    }
-    return new Date(epoch + (serial * 24 * 60 * 60 * 1000));
-}
-
-// ============================
-// Importar desde Excel
-// ============================
-function importExcel(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-            const sheetName = workbook.SheetNames[0];
-            const worksheet = workbook.Sheets[sheetName];
-
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-                header: 1,
-                raw: false,
-                dateNF: 'yyyy-mm-dd'
-            });
-
-            if (jsonData.length < 2) {
-                alert("El archivo Excel está vacío o no tiene datos.");
-                return;
-            }
-
-            const headers = jsonData[0].map(h => h.toString().toLowerCase().trim());
-            const ciIndex = headers.indexOf("ci");
-            const nameIndex = headers.findIndex(h => /nombre|name/i.test(h));
-            const birthIndex = headers.findIndex(h => /nacimiento|fecha|birth|date/i.test(h));
-            const phoneIndex = headers.findIndex(h => /celular|phone|tel/i.test(h));
-            const emailIndex = headers.findIndex(h => /correo|email/i.test(h));
-
-            if (ciIndex === -1 || nameIndex === -1 || birthIndex === -1) {
-                alert("El archivo debe contener: Nombre, CI y Fecha de nacimiento.");
-                return;
-            }
-
-            let nuevos = 0;
-            for (let i = 1; i < jsonData.length; i++) {
-                const row = jsonData[i];
-                const ci = (row[ciIndex] || "").toString().trim();
-                const name = (row[nameIndex] || "").toString().trim();
-                let birthDate = row[birthIndex];
-
-                if (birthDate instanceof Date) {
-                    if (isNaN(birthDate.getTime())) {
-                        continue;
-                    }
-                    birthDate = birthDate.toISOString().split('T')[0];
-                } else if (typeof birthDate === 'number') {
-                    const jsDate = excelDateToJSDate(birthDate);
-                    if (isNaN(jsDate.getTime())) continue;
-                    birthDate = jsDate.toISOString().split('T')[0];
-                } else {
-                    birthDate = (birthDate || "").toString().trim();
-                    if (!birthDate) continue;
-                }
-
-                const phone = (row[phoneIndex] || "").toString().trim() || "-";
-                const email = (row[emailIndex] || "").toString().trim() || "-";
-
-                if (!ci || !name || !birthDate) continue;
-                if (peopleBase.some(p => p.ci === ci)) continue;
-
-                peopleBase.push({
-                    name,
-                    ci,
-                    birthDate,
-                    phone,
-                    email,
-                    status: "not-arrived"
-                });
-                nuevos++;
-            }
-
-            if (nuevos > 0) {
-                saveToLocalStorage();
-                renderFilteredPersons();
-                updateStats();
-                alert(`✅ Se importaron ${nuevos} registros nuevos.`);
-            } else {
-                alert("ℹ️ No se encontraron registros nuevos.");
-            }
-        } catch (err) {
-            console.error(err);
-            alert("❌ Error al procesar el archivo Excel: " + err.message);
-        }
-    };
-    reader.readAsArrayBuffer(file);
-    event.target.value = "";
 }
 
 // ============================
@@ -826,7 +760,7 @@ function loadBaseJSON(event) {
             const loaded = JSON.parse(e.target.result);
             if (!Array.isArray(loaded)) throw new Error("Formato inválido");
 
-            const valid = loaded.every(p => p.name && p.ci && p.birthDate);
+            const valid = loaded.every(p => p.name);
             if (!valid) throw new Error("Faltan campos obligatorios");
 
             peopleBase = loaded;
@@ -848,16 +782,16 @@ function loadBaseJSON(event) {
 async function exportAttendanceReport() {
     const total = peopleBase.length;
     const present = peopleBase.filter(p => p.status === "present").length;
-    const notArrived = total - present;
+    const absent = peopleBase.filter(p => p.status === "absent").length;
 
     const ExcelJS = window.ExcelJS || await import('https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js');
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Asistencia');
 
-    worksheet.mergeCells('A1:C1');
+    worksheet.mergeCells('A1:D1');
     const titleCell = worksheet.getCell('A1');
-    titleCell.value = 'LISTA DE ASISTENCIA';
+    titleCell.value = 'LISTA DE ASISTENCIA GENERAL';
     titleCell.font = { bold: true, size: 14 };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     titleCell.fill = {
@@ -872,7 +806,7 @@ async function exportAttendanceReport() {
         right: { style: 'thin' }
     };
 
-    ['B1', 'C1'].forEach(cell => {
+    ['B1', 'C1', 'D1'].forEach(cell => {
         const c = worksheet.getCell(cell);
         c.fill = {
             type: 'pattern',
@@ -887,7 +821,7 @@ async function exportAttendanceReport() {
         };
     });
 
-    const headers = ['Nombre completo', 'CI', 'Fecha y hora de ingreso'];
+    const headers = ['Nombre completo', 'Hora de entrada', 'Hora de salida', 'Estado'];
     worksheet.getRow(2).values = headers;
 
     headers.forEach((header, index) => {
@@ -909,22 +843,13 @@ async function exportAttendanceReport() {
 
     let row = 3;
     peopleBase.forEach(p => {
-        let ingreso = "No llegó";
-        if (p.status === "present" && p.entryTime) {
-            const date = new Date(p.entryTime);
-            ingreso = date.toLocaleString("es-ES", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit"
-            });
-        }
+        const entryTime = p.entryTime ? formatDateTime(p.entryTime) : "-";
+        const exitTime = p.exitTime ? formatDateTime(p.exitTime) : "-";
+        const estado = p.status === "present" ? "Presente" : p.status === "absent" ? "Salió" : "No llegó";
 
-        worksheet.getRow(row).values = [p.name, p.ci, ingreso];
+        worksheet.getRow(row).values = [p.name, entryTime, exitTime, estado];
 
-        [1, 2, 3].forEach(col => {
+        [1, 2, 3, 4].forEach(col => {
             const cell = worksheet.getCell(row, col);
             cell.border = {
                 top: { style: 'thin' },
@@ -941,10 +866,11 @@ async function exportAttendanceReport() {
     worksheet.getRow(summaryRow).values = [
         `TOTAL: ${total}`,
         `✅ Presentes: ${present}`,
-        `⏳ No llegaron: ${notArrived}`
+        `🚪 Salieron: ${absent}`,
+        ''
     ];
 
-    [1, 2, 3].forEach(col => {
+    [1, 2, 3, 4].forEach(col => {
         const cell = worksheet.getCell(summaryRow, col);
         cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -962,8 +888,9 @@ async function exportAttendanceReport() {
     });
 
     worksheet.getColumn(1).width = 35;
-    worksheet.getColumn(2).width = 15;
+    worksheet.getColumn(2).width = 25;
     worksheet.getColumn(3).width = 25;
+    worksheet.getColumn(4).width = 15;
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -987,28 +914,31 @@ function sendReportByWhatsApp() {
     const total = peopleBase.length;
     const present = peopleBase.filter(p => p.status === "present").length;
     const absent = peopleBase.filter(p => p.status === "absent").length;
-    const notArrived = total - present - absent;
 
-    let message = `📄 *INFORME DE ASISTENCIA*\n\n`;
-    message += `📊 *Total:* ${total} | ✅ *Presentes:* ${present}\n`;
+    let message = `📄 *INFORME DE ASISTENCIA GENERAL*\n\n`;
+    message += `📊 *Total:* ${total} | ✅ *Presentes:* ${present} | 🚪 *Salieron:* ${absent}\n\n`;
 
     const MAX = 15;
     const list = peopleBase.slice(0, MAX);
 
-    list.forEach(p => {
-        let ingreso = "No llegó";
-        if (p.status === "present" && p.entryTime) {
-            const date = new Date(p.entryTime);
-            ingreso = date.toLocaleString("es-ES", {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
+    list.forEach((p, idx) => {
+        const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleString("es-ES", {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : "No llegó";
+        
+        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleString("es-ES", {
+            hour: '2-digit',
+            minute: '2-digit'
+        }) : "-";
 
-        message += `👤 *${p.name}*\n   CI: ${p.ci}\n   🕒 ${ingreso}\n\n`;
+        message += `${idx + 1}. *${p.name}*\n   🕐 ${entryTime}`;
+        if (exitTime !== "-") {
+            message += ` | 🚪 ${exitTime}`;
+        }
+        message += `\n\n`;
     });
 
     if (peopleBase.length > MAX) {
@@ -1024,7 +954,6 @@ function sendReportByWhatsApp() {
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
 
 </body>
