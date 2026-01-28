@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -5,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Control de Asistencia</title>
 
-<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css " rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css " rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
 
 <style>
 :root{
@@ -45,6 +46,14 @@ body{
   margin-bottom:15px;
 }
 
+.filter-card{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:20px;
+  margin-bottom:20px;
+  background: rgba(30, 41, 59, 0.5);
+}
+
 .form-control,.input-group-text{
   background:#020617;
   border:1px solid var(--border);
@@ -63,6 +72,12 @@ body{
 .status-absent{background:#7c2d12;color:#fdba74;}
 .status-not-arrived{background:#334155;color:#cbd5f5;}
 .text-muted{color:rgb(117, 116, 116) !important;}
+
+.btn-group-custom {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 </style>
 </head>
 
@@ -119,6 +134,33 @@ body{
 <!-- CONTROL -->
 <div class="tab-pane fade show active" id="control">
 
+<!-- FILTRO DE FECHA PARA REPORTES -->
+<div class="filter-card">
+  <div class="row align-items-end">
+    <div class="col-md-4">
+      <label class="form-label"><i class="fas fa-calendar"></i> Seleccionar Fecha</label>
+      <input type="date" id="reportDate" class="form-control" value="">
+    </div>
+    <div class="col-md-8">
+      <div class="btn-group-custom">
+        <button class="btn btn-info" onclick="generateDateReport()">
+          <i class="fas fa-file-alt"></i> Informe del Día
+        </button>
+        <button class="btn btn-success" onclick="sendDateReportByWhatsApp()">
+          <i class="fab fa-whatsapp"></i> WhatsApp del Día
+        </button>
+        <button class="btn btn-warning" onclick="generateDatePDF()">
+          <i class="fas fa-file-pdf"></i> PDF del Día
+        </button>
+        <button class="btn btn-secondary" onclick="clearDateFilter()">
+          <i class="fas fa-times"></i> Limpiar Fecha
+        </button>
+      </div>
+    </div>
+  </div>
+  <div id="dateFilterInfo" class="mt-2 text-muted small"></div>
+</div>
+
 <!-- BUSCADOR -->
 <div class="mb-3">
   <input id="searchInput" class="form-control" placeholder="Buscar por nombre o CI" 
@@ -162,6 +204,10 @@ let peopleBase = JSON.parse(localStorage.getItem("attendanceBase")) || [];
 // Al cargar la página
 // ============================
 document.addEventListener("DOMContentLoaded", () => {
+    // Establecer fecha de hoy por defecto
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById("reportDate").value = today;
+    
     renderPersons(peopleBase);
     updateStats();
 });
@@ -223,7 +269,7 @@ function formatDateDisplay(dateStr) {
     if (!dateStr) return "-";
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return dateStr;
-    return date.toLocaleDateString("es-ES"); // Ej: 7/1/2026
+    return date.toLocaleDateString("es-ES");
 }
 
 // ============================
@@ -231,16 +277,12 @@ function formatDateDisplay(dateStr) {
 // ============================
 
 function updateStatus(index, status) {
-    const now = new Date().toISOString(); // ISO 8601: "2026-01-07T14:30:00.000Z"
+    const now = new Date().toISOString();
 
     if (status === "present") {
-        // Solo registrar la primera vez que entra (no sobrescribir si ya tiene)
         if (peopleBase[index].status !== "present") {
             peopleBase[index].entryTime = now;
         }
-    } else {
-        // Si cambia a ausente o no llegó, opcionalmente podrías borrar entryTime
-        // Pero lo dejamos por registro histórico
     }
 
     peopleBase[index].status = status;
@@ -274,6 +316,316 @@ function renderFilteredPersons() {
 }
 
 // ============================
+// Filtrar personas por fecha
+// ============================
+function filterPeopleByDate(targetDate) {
+    if (!targetDate) return peopleBase;
+    
+    const target = new Date(targetDate);
+    target.setHours(0, 0, 0, 0);
+    
+    return peopleBase.filter(p => {
+        if (p.status === "present" && p.entryTime) {
+            const entryDate = new Date(p.entryTime);
+            entryDate.setHours(0, 0, 0, 0);
+            return entryDate.getTime() === target.getTime();
+        }
+        return false;
+    });
+}
+
+// ============================
+// Limpiar filtro de fecha
+// ============================
+function clearDateFilter() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById("reportDate").value = today;
+    document.getElementById("dateFilterInfo").innerHTML = "";
+}
+
+// ============================
+// Generar informe del día
+// ============================
+async function generateDateReport() {
+    const selectedDate = document.getElementById("reportDate").value;
+    
+    if (!selectedDate) {
+        alert("Por favor seleccione una fecha");
+        return;
+    }
+    
+    const filteredPeople = filterPeopleByDate(selectedDate);
+    
+    if (filteredPeople.length === 0) {
+        alert("No hay registros de asistencia para la fecha seleccionada");
+        return;
+    }
+    
+    const ExcelJS = window.ExcelJS || await import('https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js');
+    
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Asistencia');
+    
+    const formattedDate = new Date(selectedDate).toLocaleDateString('es-ES');
+    
+    // TÍTULO
+    worksheet.mergeCells('A1:C1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = `LISTA DE ASISTENCIA - ${formattedDate}`;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFFF00' }
+    };
+    titleCell.border = {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+    };
+    
+    ['B1', 'C1'].forEach(cell => {
+        const c = worksheet.getCell(cell);
+        c.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFFF00' }
+        };
+        c.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+    });
+    
+    // ENCABEZADOS
+    const headers = ['Nombre completo', 'CI', 'Fecha y hora de ingreso'];
+    worksheet.getRow(2).values = headers;
+    
+    headers.forEach((header, index) => {
+        const cell = worksheet.getCell(2, index + 1);
+        cell.font = { bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFFF00' }
+        };
+        cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+    });
+    
+    // DATOS
+    let row = 3;
+    filteredPeople.forEach(p => {
+        const date = new Date(p.entryTime);
+        const ingreso = date.toLocaleString("es-ES", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        });
+        
+        worksheet.getRow(row).values = [p.name, p.ci, ingreso];
+        
+        [1, 2, 3].forEach(col => {
+            const cell = worksheet.getCell(row, col);
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+        
+        row++;
+    });
+    
+    // RESUMEN
+    const summaryRow = row + 1;
+    worksheet.getRow(summaryRow).values = [
+        `TOTAL PRESENTES: ${filteredPeople.length}`,
+        '',
+        ''
+    ];
+    
+    [1, 2, 3].forEach(col => {
+        const cell = worksheet.getCell(summaryRow, col);
+        cell.font = { bold: true };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFFF00' }
+        };
+        cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+    });
+    
+    worksheet.getColumn(1).width = 35;
+    worksheet.getColumn(2).width = 15;
+    worksheet.getColumn(3).width = 25;
+    
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Asistencia_${selectedDate}.xlsx`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+// ============================
+// Enviar reporte del día por WhatsApp
+// ============================
+function sendDateReportByWhatsApp() {
+    const selectedDate = document.getElementById("reportDate").value;
+    
+    if (!selectedDate) {
+        alert("Por favor seleccione una fecha");
+        return;
+    }
+    
+    const filteredPeople = filterPeopleByDate(selectedDate);
+    
+    if (filteredPeople.length === 0) {
+        alert("No hay registros de asistencia para la fecha seleccionada");
+        return;
+    }
+    
+    const formattedDate = new Date(selectedDate).toLocaleDateString('es-ES');
+    
+    let message = `📄 *INFORME DE ASISTENCIA*\n`;
+    message += `📅 *Fecha:* ${formattedDate}\n\n`;
+    message += `✅ *Total Presentes:* ${filteredPeople.length}\n\n`;
+    
+    const MAX = 15;
+    const list = filteredPeople.slice(0, MAX);
+    
+    list.forEach(p => {
+        const date = new Date(p.entryTime);
+        const ingreso = date.toLocaleString("es-ES", {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        message += `👤 *${p.name}*\n   CI: ${p.ci}\n   🕒 ${ingreso}\n\n`;
+    });
+    
+    if (filteredPeople.length > MAX) {
+        message += `... y ${filteredPeople.length - MAX} más.\n`;
+    }
+    
+    message += `\n📊 Generado: ${new Date().toLocaleString("es-ES")}`;
+    
+    const encoded = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/?text=${encoded}`;
+    window.open(whatsappUrl, '_blank');
+}
+
+// ============================
+// Generar PDF del día
+// ============================
+async function generateDatePDF() {
+    const selectedDate = document.getElementById("reportDate").value;
+    
+    if (!selectedDate) {
+        alert("Por favor seleccione una fecha");
+        return;
+    }
+    
+    const filteredPeople = filterPeopleByDate(selectedDate);
+    
+    if (filteredPeople.length === 0) {
+        alert("No hay registros de asistencia para la fecha seleccionada");
+        return;
+    }
+    
+    // Cargar jsPDF
+    if (!window.jspdf) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        document.head.appendChild(script);
+        await new Promise(resolve => script.onload = resolve);
+    }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const formattedDate = new Date(selectedDate).toLocaleDateString('es-ES');
+    
+    // Título
+    doc.setFontSize(16);
+    doc.text('LISTA DE ASISTENCIA', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.text(`Fecha: ${formattedDate}`, 105, 30, { align: 'center' });
+    
+    // Tabla
+    let y = 45;
+    doc.setFontSize(10);
+    
+    // Encabezados
+    doc.setFont(undefined, 'bold');
+    doc.text('Nombre', 20, y);
+    doc.text('CI', 120, y);
+    doc.text('Hora de Ingreso', 160, y);
+    
+    y += 7;
+    doc.line(20, y, 190, y);
+    y += 5;
+    
+    // Datos
+    doc.setFont(undefined, 'normal');
+    filteredPeople.forEach((p, idx) => {
+        if (y > 270) {
+            doc.addPage();
+            y = 20;
+        }
+        
+        const date = new Date(p.entryTime);
+        const ingreso = date.toLocaleTimeString("es-ES", {
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+        
+        const nombre = p.name.length > 35 ? p.name.substring(0, 32) + '...' : p.name;
+        
+        doc.text(nombre, 20, y);
+        doc.text(p.ci, 120, y);
+        doc.text(ingreso, 160, y);
+        
+        y += 7;
+    });
+    
+    // Resumen
+    y += 5;
+    doc.line(20, y, 190, y);
+    y += 7;
+    doc.setFont(undefined, 'bold');
+    doc.text(`Total Presentes: ${filteredPeople.length}`, 20, y);
+    
+    doc.save(`Asistencia_${selectedDate}.pdf`);
+}
+
+// ============================
 // Registrar persona manualmente
 // ============================
 function addPerson() {
@@ -296,7 +648,7 @@ function addPerson() {
     const newPerson = {
         name,
         ci,
-        birthDate, // ya está en formato YYYY-MM-DD
+        birthDate,
         phone: phone || "-",
         email: email || "-",
         status: "not-arrived"
@@ -307,14 +659,12 @@ function addPerson() {
     renderFilteredPersons();
     updateStats();
 
-    // Limpiar
     document.getElementById("inputName").value = "";
     document.getElementById("inputCI").value = "";
     document.getElementById("inputBirthDate").value = "";
     document.getElementById("inputPhone").value = "";
     document.getElementById("inputEmail").value = "";
 
-    // Cambiar pestaña
     const controlTab = new bootstrap.Tab(document.querySelector('.nav-link[data-bs-target="#control"]'));
     controlTab.show();
 }
@@ -345,16 +695,15 @@ function updateStats() {
 // Conversión segura de fecha de Excel
 // ============================
 function excelDateToJSDate(serial) {
-    // Excel considera el 1° de enero de 1900 como día 1, pero hay un bug: considera 1900 como bisiesto.
-    const epoch = Date.UTC(1899, 11, 30); // 30 de diciembre de 1899
+    const epoch = Date.UTC(1899, 11, 30);
     if (serial < 60) {
-        serial = serial + 1; // Compensar el bug de 1900
+        serial = serial + 1;
     }
     return new Date(epoch + (serial * 24 * 60 * 60 * 1000));
 }
 
 // ============================
-// Importar desde Excel (CORREGIDO)
+// Importar desde Excel
 // ============================
 function importExcel(event) {
     const file = event.target.files[0];
@@ -368,11 +717,10 @@ function importExcel(event) {
             const sheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[sheetName];
 
-            // Convertir a JSON con fechas como strings en formato ISO
             const jsonData = XLSX.utils.sheet_to_json(worksheet, {
                 header: 1,
-                raw: false, // ¡Importante! Convierte fechas automáticamente
-                dateNF: 'yyyy-mm-dd' // Formato de salida
+                raw: false,
+                dateNF: 'yyyy-mm-dd'
             });
 
             if (jsonData.length < 2) {
@@ -399,19 +747,16 @@ function importExcel(event) {
                 const name = (row[nameIndex] || "").toString().trim();
                 let birthDate = row[birthIndex];
 
-                // Si birthDate es un objeto Date (por raw:false), conviértelo
                 if (birthDate instanceof Date) {
                     if (isNaN(birthDate.getTime())) {
-                        continue; // Fecha inválida
+                        continue;
                     }
                     birthDate = birthDate.toISOString().split('T')[0];
                 } else if (typeof birthDate === 'number') {
-                    // Caso raro: aún es número serial
                     const jsDate = excelDateToJSDate(birthDate);
                     if (isNaN(jsDate.getTime())) continue;
                     birthDate = jsDate.toISOString().split('T')[0];
                 } else {
-                    // Ya es string, asumimos formato válido o lo ignoramos si vacío
                     birthDate = (birthDate || "").toString().trim();
                     if (!birthDate) continue;
                 }
@@ -504,14 +849,12 @@ async function exportAttendanceReport() {
     const total = peopleBase.length;
     const present = peopleBase.filter(p => p.status === "present").length;
     const notArrived = total - present;
-    
-    // Importar ExcelJS
+
     const ExcelJS = window.ExcelJS || await import('https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js');
-    
+
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Asistencia');
-    
-    // ===== TITULO =====
+
     worksheet.mergeCells('A1:C1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'LISTA DE ASISTENCIA';
@@ -528,8 +871,7 @@ async function exportAttendanceReport() {
         bottom: { style: 'thin' },
         right: { style: 'thin' }
     };
-    
-    // Aplicar bordes a las celdas combinadas
+
     ['B1', 'C1'].forEach(cell => {
         const c = worksheet.getCell(cell);
         c.fill = {
@@ -544,11 +886,10 @@ async function exportAttendanceReport() {
             right: { style: 'thin' }
         };
     });
-    
-    // ===== ENCABEZADOS =====
+
     const headers = ['Nombre completo', 'CI', 'Fecha y hora de ingreso'];
     worksheet.getRow(2).values = headers;
-    
+
     headers.forEach((header, index) => {
         const cell = worksheet.getCell(2, index + 1);
         cell.font = { bold: true };
@@ -565,8 +906,7 @@ async function exportAttendanceReport() {
             right: { style: 'thin' }
         };
     });
-    
-    // ===== DATOS =====
+
     let row = 3;
     peopleBase.forEach(p => {
         let ingreso = "No llegó";
@@ -581,10 +921,9 @@ async function exportAttendanceReport() {
                 second: "2-digit"
             });
         }
-        
+
         worksheet.getRow(row).values = [p.name, p.ci, ingreso];
-        
-        // Aplicar bordes a cada celda
+
         [1, 2, 3].forEach(col => {
             const cell = worksheet.getCell(row, col);
             cell.border = {
@@ -594,18 +933,17 @@ async function exportAttendanceReport() {
                 right: { style: 'thin' }
             };
         });
-        
+
         row++;
     });
-    
-    // ===== RESUMEN =====
+
     const summaryRow = row + 1;
     worksheet.getRow(summaryRow).values = [
         `TOTAL: ${total}`,
         `✅ Presentes: ${present}`,
         `⏳ No llegaron: ${notArrived}`
     ];
-    
+
     [1, 2, 3].forEach(col => {
         const cell = worksheet.getCell(summaryRow, col);
         cell.font = { bold: true };
@@ -622,13 +960,11 @@ async function exportAttendanceReport() {
             right: { style: 'thin' }
         };
     });
-    
-    // ===== ANCHO DE COLUMNAS =====
+
     worksheet.getColumn(1).width = 35;
     worksheet.getColumn(2).width = 15;
     worksheet.getColumn(3).width = 25;
-    
-    // Descargar archivo
+
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);
@@ -638,9 +974,6 @@ async function exportAttendanceReport() {
     a.click();
     window.URL.revokeObjectURL(url);
 }
-
-
-
 
 // ============================
 // Enviar informe por WhatsApp
@@ -658,7 +991,6 @@ function sendReportByWhatsApp() {
 
     let message = `📄 *INFORME DE ASISTENCIA*\n\n`;
     message += `📊 *Total:* ${total} | ✅ *Presentes:* ${present}\n`;
-    //message += `🚪 *Salieron:* ${absent} | ⏳ *No llegaron:* ${notArrived}\n\n`;
 
     const MAX = 15;
     const list = peopleBase.slice(0, MAX);
@@ -691,10 +1023,8 @@ function sendReportByWhatsApp() {
 }
 </script>
 
-
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js "></script>
-<!--script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js "></script-->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js"></script>
 
 </body>
