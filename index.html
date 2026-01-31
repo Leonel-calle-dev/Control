@@ -66,9 +66,10 @@ body{
   border-radius:999px;
   font-size:.8rem;
   font-weight:600;
+  background:#064e3b;
+  color:#6ee7b7;
 }
-.status-present{background:#064e3b;color:#6ee7b7;}
-.status-absent{background:#7c2d12;color:#fdba74;}
+
 .text-muted{color:rgb(117, 116, 116) !important;}
 
 .btn-group-custom {
@@ -104,11 +105,11 @@ body{
 </button>
 
 <button class="btn btn-info" onclick="exportAttendanceReport()">
-<i class="fas fa-file-alt"></i> Informe
+<i class="fas fa-file-alt"></i> Informe General
 </button>
 
 <button class="btn btn-success" onclick="sendReportByWhatsApp()">
-  <i class="fab fa-whatsapp"></i> WhatsApp
+  <i class="fab fa-whatsapp"></i> WhatsApp General
 </button>
 
 </div>
@@ -116,9 +117,7 @@ body{
 
 <!-- STATS -->
 <div class="row mb-4 text-center">
-<div class="col-md-4"><div class="stat-card"><h5 id="totalPersons">0</h5><small>Total Registrados</small></div></div>
-<div class="col-md-4"><div class="stat-card"><h5 id="totalPresent">0</h5><small>Presentes (Dentro)</small></div></div>
-<div class="col-md-4"><div class="stat-card"><h5 id="totalAbsent">0</h5><small>Salieron</small></div></div>
+<div class="col-md-12"><div class="stat-card"><h5 id="totalPersons">0</h5><small>Total Registrados</small></div></div>
 </div>
 
 <!-- TABS -->
@@ -136,7 +135,7 @@ body{
 <div class="filter-card">
   <div class="row align-items-end">
     <div class="col-md-4">
-      <label class="form-label"><i class="fas fa-calendar"></i> Seleccionar Fecha</label>
+      <label class="form-label"><i class="fas fa-calendar"></i> Filtrar por Fecha</label>
       <input type="date" id="reportDate" class="form-control" value="">
     </div>
     <div class="col-md-8">
@@ -151,11 +150,12 @@ body{
           <i class="fas fa-file-pdf"></i> PDF del Día
         </button>
         <button class="btn btn-secondary" onclick="clearDateFilter()">
-          <i class="fas fa-times"></i> Limpiar Fecha
+          <i class="fas fa-times"></i> Ver Todos
         </button>
       </div>
     </div>
   </div>
+  <div id="dateFilterInfo" class="mt-2 text-info small"></div>
 </div>
 
 <!-- BUSCADOR -->
@@ -210,7 +210,27 @@ document.addEventListener("DOMContentLoaded", () => {
     
     renderPersons(peopleBase);
     updateStats();
+    updateDateFilterInfo();
 });
+
+// ============================
+// Actualizar info del filtro de fecha
+// ============================
+function updateDateFilterInfo() {
+    const selectedDate = document.getElementById("reportDate").value;
+    if (!selectedDate) return;
+    
+    const filtered = filterPeopleByDate(selectedDate);
+    const infoDiv = document.getElementById("dateFilterInfo");
+    
+    if (filtered.length > 0) {
+        const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
+        infoDiv.innerHTML = `<i class="fas fa-info-circle"></i> Mostrando ${filtered.length} registro(s) del ${formattedDate}`;
+    } else {
+        const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
+        infoDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> No hay registros para el ${formattedDate}`;
+    }
+}
 
 // ============================
 // Renderizar lista de personas
@@ -225,18 +245,8 @@ function renderPersons(list) {
     }
 
     list.forEach((person, index) => {
-        const status = person.status || "present";
-        const statusClass = status === "present" ? "status-present" : "status-absent";
-        const statusText = status === "present" ? "Presente (Dentro)" : "Salió";
-
         // Formatear entrada (siempre existe)
         const entryInfo = `<div class="time-info"><i class="fas fa-sign-in-alt text-success"></i> Entrada: ${formatDateTime(person.entryTime)}</div>`;
-        
-        // Formatear salida
-        let exitInfo = "";
-        if (person.exitTime) {
-            exitInfo = `<div class="time-info"><i class="fas fa-sign-out-alt text-warning"></i> Salida: ${formatDateTime(person.exitTime)}</div>`;
-        }
 
         const card = document.createElement("div");
         card.className = "person-card";
@@ -245,19 +255,12 @@ function renderPersons(list) {
                 <div>
                     <strong>${index + 1}. ${person.name}</strong>
                     ${entryInfo}
-                    ${exitInfo}
                 </div>
                 <div class="text-end">
-                    <span class="status-badge ${statusClass}">${statusText}</span><br>
-                    <div class="btn-group mt-2" role="group">
-                        <button class="btn btn-sm btn-warning" onclick="markExit(${index})"
-                                ${status !== "present" ? 'disabled' : ''}>
-                            <i class="fas fa-sign-out-alt"></i> Salida
-                        </button>
-                        <button class="btn btn-sm btn-danger" onclick="deletePerson(${index})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </div>
+                    <span class="status-badge">Registrado</span><br>
+                    <button class="btn btn-sm btn-danger mt-2" onclick="deletePerson(${index})">
+                        <i class="fas fa-trash"></i> Eliminar
+                    </button>
                 </div>
             </div>
         `;
@@ -281,19 +284,6 @@ function formatDateTime(isoString) {
 }
 
 // ============================
-// Marcar salida
-// ============================
-function markExit(index) {
-    const now = new Date().toISOString();
-    peopleBase[index].exitTime = now;
-    peopleBase[index].status = "absent";
-    
-    saveToLocalStorage();
-    renderFilteredPersons();
-    updateStats();
-}
-
-// ============================
 // Eliminar persona
 // ============================
 function deletePerson(index) {
@@ -302,6 +292,7 @@ function deletePerson(index) {
         saveToLocalStorage();
         renderFilteredPersons();
         updateStats();
+        updateDateFilterInfo();
     }
 }
 
@@ -334,14 +325,22 @@ function renderFilteredPersons() {
 function filterPeopleByDate(targetDate) {
     if (!targetDate) return peopleBase;
     
-    const target = new Date(targetDate);
-    target.setHours(0, 0, 0, 0);
+    // Crear fecha objetivo en zona horaria local
+    const targetParts = targetDate.split('-');
+    const targetYear = parseInt(targetParts[0]);
+    const targetMonth = parseInt(targetParts[1]) - 1; // Mes en JS es 0-indexed
+    const targetDay = parseInt(targetParts[2]);
     
     return peopleBase.filter(p => {
         if (p.entryTime) {
             const entryDate = new Date(p.entryTime);
-            entryDate.setHours(0, 0, 0, 0);
-            return entryDate.getTime() === target.getTime();
+            const entryYear = entryDate.getFullYear();
+            const entryMonth = entryDate.getMonth();
+            const entryDay = entryDate.getDate();
+            
+            return entryYear === targetYear && 
+                   entryMonth === targetMonth && 
+                   entryDay === targetDay;
         }
         return false;
     });
@@ -353,6 +352,9 @@ function filterPeopleByDate(targetDate) {
 function clearDateFilter() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById("reportDate").value = today;
+    document.getElementById("searchInput").value = "";
+    renderPersons(peopleBase);
+    updateDateFilterInfo();
 }
 
 // ============================
@@ -370,15 +372,14 @@ function addPerson() {
 
     const newPerson = {
         name,
-        entryTime: now, // Entrada automática al registrar
-        exitTime: null,
-        status: "present" // Entra como presente automáticamente
+        entryTime: now // Entrada automática al registrar
     };
 
     peopleBase.push(newPerson);
     saveToLocalStorage();
     renderFilteredPersons();
     updateStats();
+    updateDateFilterInfo();
 
     // Limpiar
     document.getElementById("inputName").value = "";
@@ -387,7 +388,7 @@ function addPerson() {
     const controlTab = new bootstrap.Tab(document.querySelector('.nav-link[data-bs-target="#control"]'));
     controlTab.show();
     
-    alert(`✅ ${name} registrado con entrada automática.`);
+    alert(`✅ ${name} registrado exitosamente a las ${formatDateTime(now)}`);
 }
 
 // ============================
@@ -402,12 +403,7 @@ function saveToLocalStorage() {
 // ============================
 function updateStats() {
     const total = peopleBase.length;
-    const present = peopleBase.filter(p => p.status === "present").length;
-    const absent = peopleBase.filter(p => p.status === "absent").length;
-
     document.getElementById("totalPersons").textContent = total;
-    document.getElementById("totalPresent").textContent = present;
-    document.getElementById("totalAbsent").textContent = absent;
 }
 
 // ============================
@@ -433,10 +429,10 @@ async function generateDateReport() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Asistencia');
     
-    const formattedDate = new Date(selectedDate).toLocaleDateString('es-ES');
+    const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
     
     // TÍTULO
-    worksheet.mergeCells('A1:D1');
+    worksheet.mergeCells('A1:C1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = `LISTA DE ASISTENCIA - ${formattedDate}`;
     titleCell.font = { bold: true, size: 14 };
@@ -453,7 +449,7 @@ async function generateDateReport() {
         right: { style: 'thin' }
     };
     
-    ['B1', 'C1', 'D1'].forEach(cell => {
+    ['B1', 'C1'].forEach(cell => {
         const c = worksheet.getCell(cell);
         c.fill = {
             type: 'pattern',
@@ -469,7 +465,7 @@ async function generateDateReport() {
     });
     
     // ENCABEZADOS
-    const headers = ['Nombre completo', 'Hora de entrada', 'Hora de salida', 'Estado'];
+    const headers = ['#', 'Nombre completo', 'Hora de entrada'];
     worksheet.getRow(2).values = headers;
     
     headers.forEach((header, index) => {
@@ -491,24 +487,16 @@ async function generateDateReport() {
     
     // DATOS
     let row = 3;
-    filteredPeople.forEach(p => {
+    filteredPeople.forEach((p, idx) => {
         const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleString("es-ES", {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit"
         }) : "-";
         
-        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleString("es-ES", {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit"
-        }) : "-";
+        worksheet.getRow(row).values = [idx + 1, p.name, entryTime];
         
-        const estado = p.status === "present" ? "Presente" : "Salió";
-        
-        worksheet.getRow(row).values = [p.name, entryTime, exitTime, estado];
-        
-        [1, 2, 3, 4].forEach(col => {
+        [1, 2, 3].forEach(col => {
             const cell = worksheet.getCell(row, col);
             cell.border = {
                 top: { style: 'thin' },
@@ -523,17 +511,13 @@ async function generateDateReport() {
     
     // RESUMEN
     const summaryRow = row + 1;
-    const presentCount = filteredPeople.filter(p => p.status === "present").length;
-    const absentCount = filteredPeople.filter(p => p.status === "absent").length;
-    
     worksheet.getRow(summaryRow).values = [
+        '',
         `TOTAL: ${filteredPeople.length}`,
-        `Presentes: ${presentCount}`,
-        `Salieron: ${absentCount}`,
         ''
     ];
     
-    [1, 2, 3, 4].forEach(col => {
+    [1, 2, 3].forEach(col => {
         const cell = worksheet.getCell(summaryRow, col);
         cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -550,10 +534,9 @@ async function generateDateReport() {
         };
     });
     
-    worksheet.getColumn(1).width = 35;
-    worksheet.getColumn(2).width = 20;
+    worksheet.getColumn(1).width = 8;
+    worksheet.getColumn(2).width = 40;
     worksheet.getColumn(3).width = 20;
-    worksheet.getColumn(4).width = 15;
     
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -583,37 +566,22 @@ function sendDateReportByWhatsApp() {
         return;
     }
     
-    const formattedDate = new Date(selectedDate).toLocaleDateString('es-ES');
-    
-    const presentCount = filteredPeople.filter(p => p.status === "present").length;
-    const absentCount = filteredPeople.filter(p => p.status === "absent").length;
+    const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
     
     let message = `📄 *INFORME DE ASISTENCIA*\n`;
     message += `📅 *Fecha:* ${formattedDate}\n\n`;
-    message += `👥 *Total:* ${filteredPeople.length}\n`;
-    message += `✅ *Presentes:* ${presentCount}\n`;
-    message += `🚪 *Salieron:* ${absentCount}\n\n`;
+    message += `👥 *Total:* ${filteredPeople.length}\n\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     
     filteredPeople.forEach((p, idx) => {
         const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleTimeString("es-ES", {
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            second: '2-digit'
         }) : "-";
         
-        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleTimeString("es-ES", {
-            hour: '2-digit',
-            minute: '2-digit'
-        }) : "-";
-        
-        const estado = p.status === "present" ? "✅" : "🚪";
-        
-        message += `${idx + 1}. *${p.name}* ${estado}\n`;
-        message += `   🕐 Entrada: ${entryTime}`;
-        if (exitTime !== "-") {
-            message += ` | Salida: ${exitTime}`;
-        }
-        message += `\n\n`;
+        message += `${idx + 1}. *${p.name}*\n`;
+        message += `   🕐 Entrada: ${entryTime}\n\n`;
     });
     
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -645,10 +613,7 @@ async function generateDatePDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    const formattedDate = new Date(selectedDate).toLocaleDateString('es-ES');
-    
-    const presentCount = filteredPeople.filter(p => p.status === "present").length;
-    const absentCount = filteredPeople.filter(p => p.status === "absent").length;
+    const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
     
     // Título
     doc.setFontSize(16);
@@ -659,7 +624,7 @@ async function generateDatePDF() {
     
     // Resumen
     doc.setFontSize(10);
-    doc.text(`Total: ${filteredPeople.length} | Presentes: ${presentCount} | Salieron: ${absentCount}`, 105, 36, { align: 'center' });
+    doc.text(`Total: ${filteredPeople.length}`, 105, 36, { align: 'center' });
     
     // Línea separadora
     doc.line(20, 40, 190, 40);
@@ -671,10 +636,8 @@ async function generateDatePDF() {
     // Encabezados
     doc.setFont(undefined, 'bold');
     doc.text('#', 20, y);
-    doc.text('Nombre', 30, y);
-    doc.text('Entrada', 120, y);
-    doc.text('Salida', 155, y);
-    doc.text('Estado', 180, y);
+    doc.text('Nombre', 35, y);
+    doc.text('Hora de Entrada', 150, y);
     
     y += 5;
     doc.line(20, y, 190, y);
@@ -690,23 +653,15 @@ async function generateDatePDF() {
         
         const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleTimeString("es-ES", {
             hour: "2-digit",
-            minute: "2-digit"
+            minute: "2-digit",
+            second: "2-digit"
         }) : "-";
         
-        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleTimeString("es-ES", {
-            hour: "2-digit",
-            minute: "2-digit"
-        }) : "-";
-        
-        const estado = p.status === "present" ? "Dentro" : "Salio";
-        
-        const nombre = p.name.length > 35 ? p.name.substring(0, 32) + '...' : p.name;
+        const nombre = p.name.length > 45 ? p.name.substring(0, 42) + '...' : p.name;
         
         doc.text(`${idx + 1}`, 20, y);
-        doc.text(nombre, 30, y);
-        doc.text(entryTime, 120, y);
-        doc.text(exitTime, 155, y);
-        doc.text(estado, 180, y);
+        doc.text(nombre, 35, y);
+        doc.text(entryTime, 150, y);
         
         y += 6;
     });
@@ -762,6 +717,7 @@ function loadBaseJSON(event) {
             saveToLocalStorage();
             renderFilteredPersons();
             updateStats();
+            updateDateFilterInfo();
             alert("✅ Base cargada exitosamente.");
         } catch (err) {
             alert("❌ Error al cargar JSON: " + err.message);
@@ -772,19 +728,20 @@ function loadBaseJSON(event) {
 }
 
 // ============================
-// Exportar informe de asistencia (Excel)
+// Exportar informe de asistencia general (Excel)
 // ============================
 async function exportAttendanceReport() {
-    const total = peopleBase.length;
-    const present = peopleBase.filter(p => p.status === "present").length;
-    const absent = peopleBase.filter(p => p.status === "absent").length;
+    if (peopleBase.length === 0) {
+        alert("No hay registros para exportar");
+        return;
+    }
 
     const ExcelJS = window.ExcelJS || await import('https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js');
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Asistencia');
 
-    worksheet.mergeCells('A1:D1');
+    worksheet.mergeCells('A1:C1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'LISTA DE ASISTENCIA GENERAL';
     titleCell.font = { bold: true, size: 14 };
@@ -801,7 +758,7 @@ async function exportAttendanceReport() {
         right: { style: 'thin' }
     };
 
-    ['B1', 'C1', 'D1'].forEach(cell => {
+    ['B1', 'C1'].forEach(cell => {
         const c = worksheet.getCell(cell);
         c.fill = {
             type: 'pattern',
@@ -816,7 +773,7 @@ async function exportAttendanceReport() {
         };
     });
 
-    const headers = ['Nombre completo', 'Hora de entrada', 'Hora de salida', 'Estado'];
+    const headers = ['#', 'Nombre completo', 'Fecha y hora de entrada'];
     worksheet.getRow(2).values = headers;
 
     headers.forEach((header, index) => {
@@ -837,14 +794,12 @@ async function exportAttendanceReport() {
     });
 
     let row = 3;
-    peopleBase.forEach(p => {
-        const entryTime = p.entryTime ? formatDateTime(p.entryTime) : "-";
-        const exitTime = p.exitTime ? formatDateTime(p.exitTime) : "-";
-        const estado = p.status === "present" ? "Presente" : "Salió";
+    peopleBase.forEach((p, idx) => {
+        const entryTime = formatDateTime(p.entryTime);
 
-        worksheet.getRow(row).values = [p.name, entryTime, exitTime, estado];
+        worksheet.getRow(row).values = [idx + 1, p.name, entryTime];
 
-        [1, 2, 3, 4].forEach(col => {
+        [1, 2, 3].forEach(col => {
             const cell = worksheet.getCell(row, col);
             cell.border = {
                 top: { style: 'thin' },
@@ -859,13 +814,12 @@ async function exportAttendanceReport() {
 
     const summaryRow = row + 1;
     worksheet.getRow(summaryRow).values = [
-        `TOTAL: ${total}`,
-        `✅ Presentes: ${present}`,
-        `🚪 Salieron: ${absent}`,
+        '',
+        `TOTAL: ${peopleBase.length}`,
         ''
     ];
 
-    [1, 2, 3, 4].forEach(col => {
+    [1, 2, 3].forEach(col => {
         const cell = worksheet.getCell(summaryRow, col);
         cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -882,10 +836,9 @@ async function exportAttendanceReport() {
         };
     });
 
-    worksheet.getColumn(1).width = 35;
-    worksheet.getColumn(2).width = 25;
+    worksheet.getColumn(1).width = 8;
+    worksheet.getColumn(2).width = 40;
     worksheet.getColumn(3).width = 25;
-    worksheet.getColumn(4).width = 15;
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -898,7 +851,7 @@ async function exportAttendanceReport() {
 }
 
 // ============================
-// Enviar informe por WhatsApp
+// Enviar informe general por WhatsApp
 // ============================
 function sendReportByWhatsApp() {
     if (peopleBase.length === 0) {
@@ -906,14 +859,8 @@ function sendReportByWhatsApp() {
         return;
     }
 
-    const total = peopleBase.length;
-    const present = peopleBase.filter(p => p.status === "present").length;
-    const absent = peopleBase.filter(p => p.status === "absent").length;
-
     let message = `📄 *INFORME DE ASISTENCIA GENERAL*\n\n`;
-    message += `👥 *Total:* ${total}\n`;
-    message += `✅ *Presentes (Dentro):* ${present}\n`;
-    message += `🚪 *Salieron:* ${absent}\n\n`;
+    message += `👥 *Total:* ${peopleBase.length}\n\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     const MAX = 20;
@@ -923,23 +870,13 @@ function sendReportByWhatsApp() {
         const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleString("es-ES", {
             day: '2-digit',
             month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        }) : "-";
-        
-        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleTimeString("es-ES", {
+            year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
         }) : "-";
 
-        const estado = p.status === "present" ? "✅" : "🚪";
-
-        message += `${idx + 1}. *${p.name}* ${estado}\n`;
-        message += `   🕐 ${entryTime}`;
-        if (exitTime !== "-") {
-            message += ` | 🚪 ${exitTime}`;
-        }
-        message += `\n\n`;
+        message += `${idx + 1}. *${p.name}*\n`;
+        message += `   🕐 ${entryTime}\n\n`;
     });
 
     if (peopleBase.length > MAX) {
