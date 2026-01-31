@@ -69,7 +69,6 @@ body{
 }
 .status-present{background:#064e3b;color:#6ee7b7;}
 .status-absent{background:#7c2d12;color:#fdba74;}
-.status-not-arrived{background:#334155;color:#cbd5f5;}
 .text-muted{color:rgb(117, 116, 116) !important;}
 
 .btn-group-custom {
@@ -117,10 +116,9 @@ body{
 
 <!-- STATS -->
 <div class="row mb-4 text-center">
-<div class="col-md-3"><div class="stat-card"><h5 id="totalPersons">0</h5><small>Total</small></div></div>
-<div class="col-md-3"><div class="stat-card"><h5 id="totalPresent">0</h5><small>Presentes</small></div></div>
-<div class="col-md-3"><div class="stat-card"><h5 id="totalAbsent">0</h5><small>Salieron</small></div></div>
-<div class="col-md-3"><div class="stat-card"><h5 id="totalNotArrived">0</h5><small>No llegaron</small></div></div>
+<div class="col-md-4"><div class="stat-card"><h5 id="totalPersons">0</h5><small>Total Registrados</small></div></div>
+<div class="col-md-4"><div class="stat-card"><h5 id="totalPresent">0</h5><small>Presentes (Dentro)</small></div></div>
+<div class="col-md-4"><div class="stat-card"><h5 id="totalAbsent">0</h5><small>Salieron</small></div></div>
 </div>
 
 <!-- TABS -->
@@ -175,10 +173,14 @@ body{
 <div class="col-md-6">
 <div class="card bg-dark text-light">
 <div class="card-body">
-<h5>Registrar Persona</h5>
-<p class="text-muted small">Solo ingresa el nombre. La fecha y hora se registran automáticamente.</p>
+<h5 class="mb-3">Registrar Ingreso</h5>
+<div class="alert alert-info">
+  <i class="fas fa-info-circle"></i> Al registrar el nombre, se marca automáticamente la entrada con fecha y hora.
+</div>
 <input class="form-control mb-3" id="inputName" placeholder="Nombre completo">
-<button class="btn btn-primary w-100" onclick="addPerson()">Registrar</button>
+<button class="btn btn-primary w-100" onclick="addPerson()">
+  <i class="fas fa-user-plus"></i> Registrar Ingreso
+</button>
 </div>
 </div>
 </div>
@@ -188,6 +190,8 @@ body{
 </div>
 </div>
 </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
 
@@ -221,22 +225,12 @@ function renderPersons(list) {
     }
 
     list.forEach((person, index) => {
-        const status = person.status || "not-arrived";
-        const statusClass = 
-            status === "present" ? "status-present" : 
-            status === "absent" ? "status-absent" : "status-not-arrived";
-        const statusText = 
-            status === "present" ? "Presente" : 
-            status === "absent" ? "Salió" : "No llegó";
+        const status = person.status || "present";
+        const statusClass = status === "present" ? "status-present" : "status-absent";
+        const statusText = status === "present" ? "Presente (Dentro)" : "Salió";
 
-        // Formatear fecha de registro
-        const registeredDate = formatDateTime(person.registeredAt);
-        
-        // Formatear entrada
-        let entryInfo = "";
-        if (person.entryTime) {
-            entryInfo = `<div class="time-info"><i class="fas fa-sign-in-alt text-success"></i> Entrada: ${formatDateTime(person.entryTime)}</div>`;
-        }
+        // Formatear entrada (siempre existe)
+        const entryInfo = `<div class="time-info"><i class="fas fa-sign-in-alt text-success"></i> Entrada: ${formatDateTime(person.entryTime)}</div>`;
         
         // Formatear salida
         let exitInfo = "";
@@ -250,17 +244,12 @@ function renderPersons(list) {
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <strong>${index + 1}. ${person.name}</strong>
-                    <div class="time-info"><i class="fas fa-calendar-plus text-info"></i> Registrado: ${registeredDate}</div>
                     ${entryInfo}
                     ${exitInfo}
                 </div>
                 <div class="text-end">
                     <span class="status-badge ${statusClass}">${statusText}</span><br>
                     <div class="btn-group mt-2" role="group">
-                        <button class="btn btn-sm btn-success" onclick="markEntry(${index})" 
-                                ${status === "present" ? 'disabled' : ''}>
-                            <i class="fas fa-sign-in-alt"></i> Entrada
-                        </button>
                         <button class="btn btn-sm btn-warning" onclick="markExit(${index})"
                                 ${status !== "present" ? 'disabled' : ''}>
                             <i class="fas fa-sign-out-alt"></i> Salida
@@ -289,20 +278,6 @@ function formatDateTime(isoString) {
         minute: '2-digit',
         second: '2-digit'
     });
-}
-
-// ============================
-// Marcar entrada
-// ============================
-function markEntry(index) {
-    const now = new Date().toISOString();
-    peopleBase[index].entryTime = now;
-    peopleBase[index].status = "present";
-    peopleBase[index].exitTime = null; // Limpiar salida previa si existe
-    
-    saveToLocalStorage();
-    renderFilteredPersons();
-    updateStats();
 }
 
 // ============================
@@ -381,7 +356,7 @@ function clearDateFilter() {
 }
 
 // ============================
-// Registrar persona manualmente
+// Registrar persona (CON ENTRADA AUTOMÁTICA)
 // ============================
 function addPerson() {
     const name = document.getElementById("inputName").value.trim();
@@ -395,10 +370,9 @@ function addPerson() {
 
     const newPerson = {
         name,
-        registeredAt: now, // Fecha y hora de registro
-        entryTime: null,
+        entryTime: now, // Entrada automática al registrar
         exitTime: null,
-        status: "not-arrived"
+        status: "present" // Entra como presente automáticamente
     };
 
     peopleBase.push(newPerson);
@@ -413,7 +387,7 @@ function addPerson() {
     const controlTab = new bootstrap.Tab(document.querySelector('.nav-link[data-bs-target="#control"]'));
     controlTab.show();
     
-    alert(`✅ ${name} registrado exitosamente.`);
+    alert(`✅ ${name} registrado con entrada automática.`);
 }
 
 // ============================
@@ -430,16 +404,14 @@ function updateStats() {
     const total = peopleBase.length;
     const present = peopleBase.filter(p => p.status === "present").length;
     const absent = peopleBase.filter(p => p.status === "absent").length;
-    const notArrived = total - present - absent;
 
     document.getElementById("totalPersons").textContent = total;
     document.getElementById("totalPresent").textContent = present;
     document.getElementById("totalAbsent").textContent = absent;
-    document.getElementById("totalNotArrived").textContent = notArrived;
 }
 
 // ============================
-// Generar informe del día
+// Generar informe del día (Excel)
 // ============================
 async function generateDateReport() {
     const selectedDate = document.getElementById("reportDate").value;
@@ -532,7 +504,7 @@ async function generateDateReport() {
             second: "2-digit"
         }) : "-";
         
-        const estado = p.status === "present" ? "Presente" : p.status === "absent" ? "Salió" : "No llegó";
+        const estado = p.status === "present" ? "Presente" : "Salió";
         
         worksheet.getRow(row).values = [p.name, entryTime, exitTime, estado];
         
@@ -551,10 +523,13 @@ async function generateDateReport() {
     
     // RESUMEN
     const summaryRow = row + 1;
+    const presentCount = filteredPeople.filter(p => p.status === "present").length;
+    const absentCount = filteredPeople.filter(p => p.status === "absent").length;
+    
     worksheet.getRow(summaryRow).values = [
         `TOTAL: ${filteredPeople.length}`,
-        '',
-        '',
+        `Presentes: ${presentCount}`,
+        `Salieron: ${absentCount}`,
         ''
     ];
     
@@ -610,22 +585,30 @@ function sendDateReportByWhatsApp() {
     
     const formattedDate = new Date(selectedDate).toLocaleDateString('es-ES');
     
+    const presentCount = filteredPeople.filter(p => p.status === "present").length;
+    const absentCount = filteredPeople.filter(p => p.status === "absent").length;
+    
     let message = `📄 *INFORME DE ASISTENCIA*\n`;
     message += `📅 *Fecha:* ${formattedDate}\n\n`;
-    message += `✅ *Total:* ${filteredPeople.length}\n\n`;
+    message += `👥 *Total:* ${filteredPeople.length}\n`;
+    message += `✅ *Presentes:* ${presentCount}\n`;
+    message += `🚪 *Salieron:* ${absentCount}\n\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     
     filteredPeople.forEach((p, idx) => {
-        const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleString("es-ES", {
+        const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleTimeString("es-ES", {
             hour: '2-digit',
             minute: '2-digit'
         }) : "-";
         
-        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleString("es-ES", {
+        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleTimeString("es-ES", {
             hour: '2-digit',
             minute: '2-digit'
         }) : "-";
         
-        message += `${idx + 1}. *${p.name}*\n`;
+        const estado = p.status === "present" ? "✅" : "🚪";
+        
+        message += `${idx + 1}. *${p.name}* ${estado}\n`;
         message += `   🕐 Entrada: ${entryTime}`;
         if (exitTime !== "-") {
             message += ` | Salida: ${exitTime}`;
@@ -633,7 +616,8 @@ function sendDateReportByWhatsApp() {
         message += `\n\n`;
     });
     
-    message += `\n📊 Generado: ${new Date().toLocaleString("es-ES")}`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `📊 Generado: ${new Date().toLocaleString("es-ES")}`;
     
     const encoded = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/?text=${encoded}`;
@@ -658,37 +642,41 @@ async function generateDatePDF() {
         return;
     }
     
-    // Cargar jsPDF
-    if (!window.jspdf) {
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-        document.head.appendChild(script);
-        await new Promise(resolve => script.onload = resolve);
-    }
-    
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
     const formattedDate = new Date(selectedDate).toLocaleDateString('es-ES');
+    
+    const presentCount = filteredPeople.filter(p => p.status === "present").length;
+    const absentCount = filteredPeople.filter(p => p.status === "absent").length;
     
     // Título
     doc.setFontSize(16);
     doc.text('LISTA DE ASISTENCIA', 105, 20, { align: 'center' });
     
     doc.setFontSize(12);
-    doc.text(`Fecha: ${formattedDate}`, 105, 30, { align: 'center' });
+    doc.text(`Fecha: ${formattedDate}`, 105, 28, { align: 'center' });
+    
+    // Resumen
+    doc.setFontSize(10);
+    doc.text(`Total: ${filteredPeople.length} | Presentes: ${presentCount} | Salieron: ${absentCount}`, 105, 36, { align: 'center' });
+    
+    // Línea separadora
+    doc.line(20, 40, 190, 40);
     
     // Tabla
-    let y = 45;
-    doc.setFontSize(10);
+    let y = 50;
+    doc.setFontSize(9);
     
     // Encabezados
     doc.setFont(undefined, 'bold');
-    doc.text('Nombre', 20, y);
+    doc.text('#', 20, y);
+    doc.text('Nombre', 30, y);
     doc.text('Entrada', 120, y);
-    doc.text('Salida', 160, y);
+    doc.text('Salida', 155, y);
+    doc.text('Estado', 180, y);
     
-    y += 7;
+    y += 5;
     doc.line(20, y, 190, y);
     y += 5;
     
@@ -710,21 +698,28 @@ async function generateDatePDF() {
             minute: "2-digit"
         }) : "-";
         
-        const nombre = p.name.length > 30 ? p.name.substring(0, 27) + '...' : p.name;
+        const estado = p.status === "present" ? "Dentro" : "Salio";
         
-        doc.text(nombre, 20, y);
+        const nombre = p.name.length > 35 ? p.name.substring(0, 32) + '...' : p.name;
+        
+        doc.text(`${idx + 1}`, 20, y);
+        doc.text(nombre, 30, y);
         doc.text(entryTime, 120, y);
-        doc.text(exitTime, 160, y);
+        doc.text(exitTime, 155, y);
+        doc.text(estado, 180, y);
         
-        y += 7;
+        y += 6;
     });
     
-    // Resumen
-    y += 5;
+    // Línea final
+    y += 2;
     doc.line(20, y, 190, y);
-    y += 7;
+    
+    // Pie de página
+    y += 8;
     doc.setFont(undefined, 'bold');
-    doc.text(`Total: ${filteredPeople.length}`, 20, y);
+    doc.setFontSize(10);
+    doc.text(`Total registrados: ${filteredPeople.length}`, 20, y);
     
     doc.save(`Asistencia_${selectedDate}.pdf`);
 }
@@ -760,7 +755,7 @@ function loadBaseJSON(event) {
             const loaded = JSON.parse(e.target.result);
             if (!Array.isArray(loaded)) throw new Error("Formato inválido");
 
-            const valid = loaded.every(p => p.name);
+            const valid = loaded.every(p => p.name && p.entryTime);
             if (!valid) throw new Error("Faltan campos obligatorios");
 
             peopleBase = loaded;
@@ -845,7 +840,7 @@ async function exportAttendanceReport() {
     peopleBase.forEach(p => {
         const entryTime = p.entryTime ? formatDateTime(p.entryTime) : "-";
         const exitTime = p.exitTime ? formatDateTime(p.exitTime) : "-";
-        const estado = p.status === "present" ? "Presente" : p.status === "absent" ? "Salió" : "No llegó";
+        const estado = p.status === "present" ? "Presente" : "Salió";
 
         worksheet.getRow(row).values = [p.name, entryTime, exitTime, estado];
 
@@ -897,7 +892,7 @@ async function exportAttendanceReport() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'LISTA_DE_ASISTENCIA.xlsx';
+    a.download = 'LISTA_DE_ASISTENCIA_GENERAL.xlsx';
     a.click();
     window.URL.revokeObjectURL(url);
 }
@@ -916,9 +911,12 @@ function sendReportByWhatsApp() {
     const absent = peopleBase.filter(p => p.status === "absent").length;
 
     let message = `📄 *INFORME DE ASISTENCIA GENERAL*\n\n`;
-    message += `📊 *Total:* ${total} | ✅ *Presentes:* ${present} | 🚪 *Salieron:* ${absent}\n\n`;
+    message += `👥 *Total:* ${total}\n`;
+    message += `✅ *Presentes (Dentro):* ${present}\n`;
+    message += `🚪 *Salieron:* ${absent}\n\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-    const MAX = 15;
+    const MAX = 20;
     const list = peopleBase.slice(0, MAX);
 
     list.forEach((p, idx) => {
@@ -927,14 +925,17 @@ function sendReportByWhatsApp() {
             month: '2-digit',
             hour: '2-digit',
             minute: '2-digit'
-        }) : "No llegó";
+        }) : "-";
         
-        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleString("es-ES", {
+        const exitTime = p.exitTime ? new Date(p.exitTime).toLocaleTimeString("es-ES", {
             hour: '2-digit',
             minute: '2-digit'
         }) : "-";
 
-        message += `${idx + 1}. *${p.name}*\n   🕐 ${entryTime}`;
+        const estado = p.status === "present" ? "✅" : "🚪";
+
+        message += `${idx + 1}. *${p.name}* ${estado}\n`;
+        message += `   🕐 ${entryTime}`;
         if (exitTime !== "-") {
             message += ` | 🚪 ${exitTime}`;
         }
@@ -942,10 +943,11 @@ function sendReportByWhatsApp() {
     });
 
     if (peopleBase.length > MAX) {
-        message += `... y ${peopleBase.length - MAX} más.\n`;
+        message += `... y ${peopleBase.length - MAX} más.\n\n`;
     }
 
-    message += `\n📅 Generado: ${new Date().toLocaleString("es-ES")}`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `📅 Generado: ${new Date().toLocaleString("es-ES")}`;
 
     const encoded = encodeURIComponent(message);
     const whatsappUrl = `https://wa.me/?text=${encoded}`;
