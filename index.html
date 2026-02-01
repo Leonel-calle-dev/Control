@@ -978,9 +978,9 @@ function sendReportByWhatsApp() {
         return;
     }
 
-    let message = `📄 *INFORME DE ASISTENCIA GENERAL*\n\n`;
+    let message = `📋 *INFORME DE INGRESOS RECTORADO GENERAL*\n\n`;
     message += `👥 *Total:* ${peopleBase.length}\n\n`;
-    message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+    message += `━━━━━━━━━━━━━━━━━━\n\n`;
 
     const MAX = 20;
     const list = peopleBase.slice(0, MAX);
@@ -1003,7 +1003,7 @@ function sendReportByWhatsApp() {
         message += `... y ${peopleBase.length - MAX} más.\n\n`;
     }
 
-    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `━━━━━━━━━━━━━━━━━━\n`;
     message += `📅 Generado: ${new Date().toLocaleString("es-ES")}`;
 
     const encoded = encodeURIComponent(message);
