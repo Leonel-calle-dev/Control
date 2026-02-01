@@ -53,13 +53,18 @@ body{
   background: rgba(30, 41, 59, 0.5);
 }
 
-.form-control,.input-group-text{
+.form-control,.form-select,.input-group-text{
   background:#020617;
   border:1px solid var(--border);
   color:var(--text);
 }
 
 .form-control::placeholder{color:var(--muted);}
+
+.form-select option {
+  background:#020617;
+  color:var(--text);
+}
 
 .status-badge{
   padding:6px 14px;
@@ -68,6 +73,17 @@ body{
   font-weight:600;
   background:#064e3b;
   color:#6ee7b7;
+}
+
+.destination-badge{
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:.75rem;
+  font-weight:600;
+  background:#1e40af;
+  color:#93c5fd;
+  display: inline-block;
+  margin-top: 5px;
 }
 
 .text-muted{color:rgb(117, 116, 116) !important;}
@@ -82,6 +98,10 @@ body{
   font-size: 0.85rem;
   color: var(--muted);
   margin-top: 5px;
+}
+
+#newDestinationInput {
+  display: none;
 }
 </style>
 </head>
@@ -160,7 +180,7 @@ body{
 
 <!-- BUSCADOR -->
 <div class="mb-3">
-  <input id="searchInput" class="form-control" placeholder="Buscar por nombre" 
+  <input id="searchInput" class="form-control" placeholder="Buscar por nombre o destino" 
          oninput="filterPeople(this.value)">
 </div>
 
@@ -175,9 +195,22 @@ body{
 <div class="card-body">
 <h5 class="mb-3">Registrar Ingreso</h5>
 <div class="alert alert-info">
-  <i class="fas fa-info-circle"></i> Al registrar el nombre, se marca automáticamente la entrada con fecha y hora.
+  <i class="fas fa-info-circle"></i> Al registrar, se marca automáticamente la entrada con fecha y hora.
 </div>
-<input class="form-control mb-3" id="inputName" placeholder="Nombre completo">
+<div class="mb-3">
+  <label class="form-label">Nombre completo</label>
+  <input class="form-control" id="inputName" placeholder="Ej: Juan Pérez">
+</div>
+<div class="mb-3">
+  <label class="form-label">Dirección / Unidad / Destino</label>
+  <select class="form-select" id="selectDestination" onchange="handleDestinationChange()">
+    <option value="">-- Seleccionar --</option>
+  </select>
+</div>
+<div class="mb-3" id="newDestinationInput">
+  <label class="form-label">Nuevo Destino</label>
+  <input class="form-control" id="inputNewDestination" placeholder="Escribe el nuevo destino">
+</div>
 <button class="btn btn-primary w-100" onclick="addPerson()">
   <i class="fas fa-user-plus"></i> Registrar Ingreso
 </button>
@@ -208,10 +241,56 @@ document.addEventListener("DOMContentLoaded", () => {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById("reportDate").value = today;
     
+    loadDestinations();
     renderPersons(peopleBase);
     updateStats();
     updateDateFilterInfo();
 });
+
+// ============================
+// Cargar destinos en el select
+// ============================
+function loadDestinations() {
+    const select = document.getElementById("selectDestination");
+    
+    // Obtener destinos únicos de todos los registros
+    const destinations = [...new Set(peopleBase.map(p => p.destination).filter(d => d))];
+    
+    // Limpiar opciones excepto la primera
+    select.innerHTML = '<option value="">-- Seleccionar --</option>';
+    
+    // Agregar destinos existentes
+    destinations.forEach(dest => {
+        const option = document.createElement("option");
+        option.value = dest;
+        option.textContent = dest;
+        select.appendChild(option);
+    });
+    
+    // Agregar opción "Otro (nuevo)"
+    const optionOther = document.createElement("option");
+    optionOther.value = "NUEVO";
+    optionOther.textContent = "➕ Otro (nuevo destino)";
+    select.appendChild(optionOther);
+}
+
+// ============================
+// Manejar cambio en select de destino
+// ============================
+function handleDestinationChange() {
+    const select = document.getElementById("selectDestination");
+    const newDestinationDiv = document.getElementById("newDestinationInput");
+    const newDestinationInput = document.getElementById("inputNewDestination");
+    
+    if (select.value === "NUEVO") {
+        newDestinationDiv.style.display = "block";
+        newDestinationInput.value = "";
+        newDestinationInput.focus();
+    } else {
+        newDestinationDiv.style.display = "none";
+        newDestinationInput.value = "";
+    }
+}
 
 // ============================
 // Actualizar info del filtro de fecha
@@ -247,6 +326,10 @@ function renderPersons(list) {
     list.forEach((person, index) => {
         // Formatear entrada (siempre existe)
         const entryInfo = `<div class="time-info"><i class="fas fa-sign-in-alt text-success"></i> Entrada: ${formatDateTime(person.entryTime)}</div>`;
+        
+        // Mostrar destino
+        const destinationBadge = person.destination ? 
+            `<span class="destination-badge"><i class="fas fa-map-marker-alt"></i> ${person.destination}</span>` : '';
 
         const card = document.createElement("div");
         card.className = "person-card";
@@ -254,6 +337,7 @@ function renderPersons(list) {
             <div class="d-flex justify-content-between align-items-start">
                 <div>
                     <strong>${index + 1}. ${person.name}</strong>
+                    ${destinationBadge}
                     ${entryInfo}
                 </div>
                 <div class="text-end">
@@ -290,6 +374,7 @@ function deletePerson(index) {
     if (confirm(`¿Está seguro de eliminar a ${peopleBase[index].name}?`)) {
         peopleBase.splice(index, 1);
         saveToLocalStorage();
+        loadDestinations(); // Actualizar lista de destinos
         renderFilteredPersons();
         updateStats();
         updateDateFilterInfo();
@@ -302,7 +387,8 @@ function deletePerson(index) {
 function filterPeople(query) {
     const lowerQuery = query.toLowerCase().trim();
     const filtered = peopleBase.filter(p => 
-        p.name.toLowerCase().includes(lowerQuery)
+        p.name.toLowerCase().includes(lowerQuery) ||
+        (p.destination && p.destination.toLowerCase().includes(lowerQuery))
     );
     renderPersons(filtered);
 }
@@ -362,33 +448,57 @@ function clearDateFilter() {
 // ============================
 function addPerson() {
     const name = document.getElementById("inputName").value.trim();
-
+    const selectDestination = document.getElementById("selectDestination");
+    const newDestinationInput = document.getElementById("inputNewDestination");
+    
+    let destination = "";
+    
     if (!name) {
         alert("Por favor, ingrese el nombre completo.");
         return;
+    }
+
+    // Determinar el destino
+    if (selectDestination.value === "NUEVO") {
+        destination = newDestinationInput.value.trim();
+        if (!destination) {
+            alert("Por favor, ingrese el nuevo destino.");
+            return;
+        }
+    } else {
+        destination = selectDestination.value.trim();
+        if (!destination) {
+            alert("Por favor, seleccione un destino.");
+            return;
+        }
     }
 
     const now = new Date().toISOString();
 
     const newPerson = {
         name,
+        destination,
         entryTime: now // Entrada automática al registrar
     };
 
     peopleBase.push(newPerson);
     saveToLocalStorage();
+    loadDestinations(); // Actualizar lista de destinos
     renderFilteredPersons();
     updateStats();
     updateDateFilterInfo();
 
     // Limpiar
     document.getElementById("inputName").value = "";
+    selectDestination.value = "";
+    newDestinationInput.value = "";
+    document.getElementById("newDestinationInput").style.display = "none";
 
     // Cambiar pestaña
     const controlTab = new bootstrap.Tab(document.querySelector('.nav-link[data-bs-target="#control"]'));
     controlTab.show();
     
-    alert(`✅ ${name} registrado exitosamente a las ${formatDateTime(now)}`);
+    alert(`✅ ${name} registrado exitosamente\nDestino: ${destination}\nHora: ${formatDateTime(now)}`);
 }
 
 // ============================
@@ -432,7 +542,7 @@ async function generateDateReport() {
     const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
     
     // TÍTULO
-    worksheet.mergeCells('A1:C1');
+    worksheet.mergeCells('A1:D1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = `LISTA DE ASISTENCIA - ${formattedDate}`;
     titleCell.font = { bold: true, size: 14 };
@@ -449,7 +559,7 @@ async function generateDateReport() {
         right: { style: 'thin' }
     };
     
-    ['B1', 'C1'].forEach(cell => {
+    ['B1', 'C1', 'D1'].forEach(cell => {
         const c = worksheet.getCell(cell);
         c.fill = {
             type: 'pattern',
@@ -465,7 +575,7 @@ async function generateDateReport() {
     });
     
     // ENCABEZADOS
-    const headers = ['#', 'Nombre completo', 'Hora de entrada'];
+    const headers = ['#', 'Nombre completo', 'Destino/Unidad', 'Hora de entrada'];
     worksheet.getRow(2).values = headers;
     
     headers.forEach((header, index) => {
@@ -494,9 +604,9 @@ async function generateDateReport() {
             second: "2-digit"
         }) : "-";
         
-        worksheet.getRow(row).values = [idx + 1, p.name, entryTime];
+        worksheet.getRow(row).values = [idx + 1, p.name, p.destination || "-", entryTime];
         
-        [1, 2, 3].forEach(col => {
+        [1, 2, 3, 4].forEach(col => {
             const cell = worksheet.getCell(row, col);
             cell.border = {
                 top: { style: 'thin' },
@@ -514,10 +624,11 @@ async function generateDateReport() {
     worksheet.getRow(summaryRow).values = [
         '',
         `TOTAL: ${filteredPeople.length}`,
+        '',
         ''
     ];
     
-    [1, 2, 3].forEach(col => {
+    [1, 2, 3, 4].forEach(col => {
         const cell = worksheet.getCell(summaryRow, col);
         cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -535,8 +646,9 @@ async function generateDateReport() {
     });
     
     worksheet.getColumn(1).width = 8;
-    worksheet.getColumn(2).width = 40;
-    worksheet.getColumn(3).width = 20;
+    worksheet.getColumn(2).width = 35;
+    worksheet.getColumn(3).width = 30;
+    worksheet.getColumn(4).width = 20;
     
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -581,6 +693,7 @@ function sendDateReportByWhatsApp() {
         }) : "-";
         
         message += `${idx + 1}. *${p.name}*\n`;
+        message += `   📍 Destino: ${p.destination || "-"}\n`;
         message += `   🕐 Entrada: ${entryTime}\n\n`;
     });
     
@@ -636,8 +749,9 @@ async function generateDatePDF() {
     // Encabezados
     doc.setFont(undefined, 'bold');
     doc.text('#', 20, y);
-    doc.text('Nombre', 35, y);
-    doc.text('Hora de Entrada', 150, y);
+    doc.text('Nombre', 30, y);
+    doc.text('Destino', 100, y);
+    doc.text('Entrada', 160, y);
     
     y += 5;
     doc.line(20, y, 190, y);
@@ -657,11 +771,13 @@ async function generateDatePDF() {
             second: "2-digit"
         }) : "-";
         
-        const nombre = p.name.length > 45 ? p.name.substring(0, 42) + '...' : p.name;
+        const nombre = p.name.length > 30 ? p.name.substring(0, 27) + '...' : p.name;
+        const destino = p.destination && p.destination.length > 25 ? p.destination.substring(0, 22) + '...' : (p.destination || "-");
         
         doc.text(`${idx + 1}`, 20, y);
-        doc.text(nombre, 35, y);
-        doc.text(entryTime, 150, y);
+        doc.text(nombre, 30, y);
+        doc.text(destino, 100, y);
+        doc.text(entryTime, 160, y);
         
         y += 6;
     });
@@ -715,6 +831,7 @@ function loadBaseJSON(event) {
 
             peopleBase = loaded;
             saveToLocalStorage();
+            loadDestinations();
             renderFilteredPersons();
             updateStats();
             updateDateFilterInfo();
@@ -741,7 +858,7 @@ async function exportAttendanceReport() {
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Asistencia');
 
-    worksheet.mergeCells('A1:C1');
+    worksheet.mergeCells('A1:D1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = 'LISTA DE ASISTENCIA GENERAL';
     titleCell.font = { bold: true, size: 14 };
@@ -758,7 +875,7 @@ async function exportAttendanceReport() {
         right: { style: 'thin' }
     };
 
-    ['B1', 'C1'].forEach(cell => {
+    ['B1', 'C1', 'D1'].forEach(cell => {
         const c = worksheet.getCell(cell);
         c.fill = {
             type: 'pattern',
@@ -773,7 +890,7 @@ async function exportAttendanceReport() {
         };
     });
 
-    const headers = ['#', 'Nombre completo', 'Fecha y hora de entrada'];
+    const headers = ['#', 'Nombre completo', 'Destino/Unidad', 'Fecha y hora de entrada'];
     worksheet.getRow(2).values = headers;
 
     headers.forEach((header, index) => {
@@ -797,9 +914,9 @@ async function exportAttendanceReport() {
     peopleBase.forEach((p, idx) => {
         const entryTime = formatDateTime(p.entryTime);
 
-        worksheet.getRow(row).values = [idx + 1, p.name, entryTime];
+        worksheet.getRow(row).values = [idx + 1, p.name, p.destination || "-", entryTime];
 
-        [1, 2, 3].forEach(col => {
+        [1, 2, 3, 4].forEach(col => {
             const cell = worksheet.getCell(row, col);
             cell.border = {
                 top: { style: 'thin' },
@@ -816,10 +933,11 @@ async function exportAttendanceReport() {
     worksheet.getRow(summaryRow).values = [
         '',
         `TOTAL: ${peopleBase.length}`,
+        '',
         ''
     ];
 
-    [1, 2, 3].forEach(col => {
+    [1, 2, 3, 4].forEach(col => {
         const cell = worksheet.getCell(summaryRow, col);
         cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -837,8 +955,9 @@ async function exportAttendanceReport() {
     });
 
     worksheet.getColumn(1).width = 8;
-    worksheet.getColumn(2).width = 40;
-    worksheet.getColumn(3).width = 25;
+    worksheet.getColumn(2).width = 35;
+    worksheet.getColumn(3).width = 30;
+    worksheet.getColumn(4).width = 25;
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -876,6 +995,7 @@ function sendReportByWhatsApp() {
         }) : "-";
 
         message += `${idx + 1}. *${p.name}*\n`;
+        message += `   📍 Destino: ${p.destination || "-"}\n`;
         message += `   🕐 ${entryTime}\n\n`;
     });
 
