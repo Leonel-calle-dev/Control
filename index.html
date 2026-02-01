@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Control de Asistencia</title>
+<title>Control de Ingresos - Rectorado</title>
 
 <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
@@ -112,24 +112,24 @@ body{
 
 <!-- HEADER -->
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-<h4><i class="fas fa-clipboard-check text-primary"></i> Control de Asistencia</h4>
+<h4><i class="fas fa-building text-primary"></i> Control de Ingresos - Rectorado</h4>
 
 <div class="d-flex gap-2 flex-wrap">
 <label class="btn btn-secondary mb-0">
-<i class="fas fa-folder-open"></i> Cargar JSON
+<i class="fas fa-folder-open"></i> Cargar Datos
 <input type="file" accept=".json" hidden onchange="loadBaseJSON(event)">
 </label>
 
 <button class="btn btn-primary" onclick="exportBaseJSON()">
-<i class="fas fa-file-code"></i> Exportar JSON
+<i class="fas fa-file-code"></i> Exportar Datos
 </button>
 
 <button class="btn btn-info" onclick="exportAttendanceReport()">
-<i class="fas fa-file-alt"></i> Informe General
+<i class="fas fa-file-alt"></i> Reporte General
 </button>
 
 <button class="btn btn-success" onclick="sendReportByWhatsApp()">
-  <i class="fab fa-whatsapp"></i> WhatsApp General
+  <i class="fab fa-whatsapp"></i> WhatsApp
 </button>
 
 </div>
@@ -137,13 +137,13 @@ body{
 
 <!-- STATS -->
 <div class="row mb-4 text-center">
-<div class="col-md-12"><div class="stat-card"><h5 id="totalPersons">0</h5><small>Total Registrados</small></div></div>
+<div class="col-md-12"><div class="stat-card"><h5 id="totalPersons">0</h5><small>Total de Visitantes</small></div></div>
 </div>
 
 <!-- TABS -->
 <ul class="nav nav-tabs mb-3">
-<li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#control">Control</button></li>
-<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#register">Registrar</button></li>
+<li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#control">Registro de Ingresos</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#register">Nuevo Ingreso</button></li>
 </ul>
 
 <div class="tab-content">
@@ -161,7 +161,7 @@ body{
     <div class="col-md-8">
       <div class="btn-group-custom">
         <button class="btn btn-info" onclick="generateDateReport()">
-          <i class="fas fa-file-alt"></i> Informe del Día
+          <i class="fas fa-file-alt"></i> Reporte del Día
         </button>
         <button class="btn btn-success" onclick="sendDateReportByWhatsApp()">
           <i class="fab fa-whatsapp"></i> WhatsApp del Día
@@ -193,26 +193,26 @@ body{
 <div class="col-md-6">
 <div class="card bg-dark text-light">
 <div class="card-body">
-<h5 class="mb-3">Registrar Ingreso</h5>
+<h5 class="mb-3"><i class="fas fa-user-check"></i> Registrar Nuevo Ingreso</h5>
 <div class="alert alert-info">
-  <i class="fas fa-info-circle"></i> Al registrar, se marca automáticamente la entrada con fecha y hora.
+  <i class="fas fa-info-circle"></i> Al registrar, se guarda automáticamente la fecha y hora de ingreso.
 </div>
 <div class="mb-3">
-  <label class="form-label">Nombre completo</label>
-  <input class="form-control" id="inputName" placeholder="Ej: Juan Pérez">
+  <label class="form-label"><i class="fas fa-user"></i> Nombre del Visitante</label>
+  <input class="form-control" id="inputName" placeholder="Ej: Juan Pérez González">
 </div>
 <div class="mb-3">
-  <label class="form-label">Dirección / Unidad / Destino</label>
+  <label class="form-label"><i class="fas fa-map-marker-alt"></i> Oficina / Unidad / Destino</label>
   <select class="form-select" id="selectDestination" onchange="handleDestinationChange()">
-    <option value="">-- Seleccionar --</option>
+    <option value="">-- Seleccionar destino --</option>
   </select>
 </div>
 <div class="mb-3" id="newDestinationInput">
   <label class="form-label">Nuevo Destino</label>
-  <input class="form-control" id="inputNewDestination" placeholder="Escribe el nuevo destino">
+  <input class="form-control" id="inputNewDestination" placeholder="Ej: Dirección Académica, Decanato, Secretaría General">
 </div>
-<button class="btn btn-primary w-100" onclick="addPerson()">
-  <i class="fas fa-user-plus"></i> Registrar Ingreso
+<button class="btn btn-primary w-100 btn-lg" onclick="addPerson()">
+  <i class="fas fa-sign-in-alt"></i> Registrar Ingreso
 </button>
 </div>
 </div>
@@ -257,10 +257,10 @@ function loadDestinations() {
     const destinations = [...new Set(peopleBase.map(p => p.destination).filter(d => d))];
     
     // Limpiar opciones excepto la primera
-    select.innerHTML = '<option value="">-- Seleccionar --</option>';
+    select.innerHTML = '<option value="">-- Seleccionar destino --</option>';
     
-    // Agregar destinos existentes
-    destinations.forEach(dest => {
+    // Agregar destinos existentes ordenados alfabéticamente
+    destinations.sort().forEach(dest => {
         const option = document.createElement("option");
         option.value = dest;
         option.textContent = dest;
@@ -304,10 +304,10 @@ function updateDateFilterInfo() {
     
     if (filtered.length > 0) {
         const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
-        infoDiv.innerHTML = `<i class="fas fa-info-circle"></i> Mostrando ${filtered.length} registro(s) del ${formattedDate}`;
+        infoDiv.innerHTML = `<i class="fas fa-info-circle"></i> Mostrando ${filtered.length} ingreso(s) del ${formattedDate}`;
     } else {
         const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
-        infoDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> No hay registros para el ${formattedDate}`;
+        infoDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> No hay ingresos registrados para el ${formattedDate}`;
     }
 }
 
@@ -319,17 +319,17 @@ function renderPersons(list) {
     container.innerHTML = "";
 
     if (list.length === 0) {
-        container.innerHTML = `<p class="text-muted">No hay personas registradas.</p>`;
+        container.innerHTML = `<p class="text-muted">No hay ingresos registrados.</p>`;
         return;
     }
 
     list.forEach((person, index) => {
         // Formatear entrada (siempre existe)
-        const entryInfo = `<div class="time-info"><i class="fas fa-sign-in-alt text-success"></i> Entrada: ${formatDateTime(person.entryTime)}</div>`;
+        const entryInfo = `<div class="time-info"><i class="fas fa-clock text-success"></i> Ingreso: ${formatDateTime(person.entryTime)}</div>`;
         
         // Mostrar destino
         const destinationBadge = person.destination ? 
-            `<span class="destination-badge"><i class="fas fa-map-marker-alt"></i> ${person.destination}</span>` : '';
+            `<span class="destination-badge"><i class="fas fa-building"></i> ${person.destination}</span>` : '';
 
         const card = document.createElement("div");
         card.className = "person-card";
@@ -341,7 +341,7 @@ function renderPersons(list) {
                     ${entryInfo}
                 </div>
                 <div class="text-end">
-                    <span class="status-badge">Registrado</span><br>
+                    <span class="status-badge"><i class="fas fa-check-circle"></i> Registrado</span><br>
                     <button class="btn btn-sm btn-danger mt-2" onclick="deletePerson(${index})">
                         <i class="fas fa-trash"></i> Eliminar
                     </button>
@@ -371,7 +371,7 @@ function formatDateTime(isoString) {
 // Eliminar persona
 // ============================
 function deletePerson(index) {
-    if (confirm(`¿Está seguro de eliminar a ${peopleBase[index].name}?`)) {
+    if (confirm(`¿Está seguro de eliminar el registro de ${peopleBase[index].name}?`)) {
         peopleBase.splice(index, 1);
         saveToLocalStorage();
         loadDestinations(); // Actualizar lista de destinos
@@ -454,7 +454,7 @@ function addPerson() {
     let destination = "";
     
     if (!name) {
-        alert("Por favor, ingrese el nombre completo.");
+        alert("Por favor, ingrese el nombre del visitante.");
         return;
     }
 
@@ -462,7 +462,7 @@ function addPerson() {
     if (selectDestination.value === "NUEVO") {
         destination = newDestinationInput.value.trim();
         if (!destination) {
-            alert("Por favor, ingrese el nuevo destino.");
+            alert("Por favor, ingrese el destino.");
             return;
         }
     } else {
@@ -498,7 +498,7 @@ function addPerson() {
     const controlTab = new bootstrap.Tab(document.querySelector('.nav-link[data-bs-target="#control"]'));
     controlTab.show();
     
-    alert(`✅ ${name} registrado exitosamente\nDestino: ${destination}\nHora: ${formatDateTime(now)}`);
+    alert(`✅ Ingreso registrado exitosamente\n\nVisitante: ${name}\nDestino: ${destination}\nHora: ${formatDateTime(now)}`);
 }
 
 // ============================
@@ -530,21 +530,21 @@ async function generateDateReport() {
     const filteredPeople = filterPeopleByDate(selectedDate);
     
     if (filteredPeople.length === 0) {
-        alert("No hay registros de asistencia para la fecha seleccionada");
+        alert("No hay ingresos registrados para la fecha seleccionada");
         return;
     }
     
     const ExcelJS = window.ExcelJS || await import('https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js');
     
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Asistencia');
+    const worksheet = workbook.addWorksheet('Ingresos');
     
     const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
     
     // TÍTULO
     worksheet.mergeCells('A1:D1');
     const titleCell = worksheet.getCell('A1');
-    titleCell.value = `LISTA DE ASISTENCIA - ${formattedDate}`;
+    titleCell.value = `REGISTRO DE INGRESOS AL RECTORADO - ${formattedDate}`;
     titleCell.font = { bold: true, size: 14 };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     titleCell.fill = {
@@ -575,7 +575,7 @@ async function generateDateReport() {
     });
     
     // ENCABEZADOS
-    const headers = ['#', 'Nombre completo', 'Destino/Unidad', 'Hora de entrada'];
+    const headers = ['#', 'Nombre del Visitante', 'Oficina/Unidad', 'Hora de Ingreso'];
     worksheet.getRow(2).values = headers;
     
     headers.forEach((header, index) => {
@@ -623,7 +623,7 @@ async function generateDateReport() {
     const summaryRow = row + 1;
     worksheet.getRow(summaryRow).values = [
         '',
-        `TOTAL: ${filteredPeople.length}`,
+        `TOTAL VISITANTES: ${filteredPeople.length}`,
         '',
         ''
     ];
@@ -655,7 +655,7 @@ async function generateDateReport() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Asistencia_${selectedDate}.xlsx`;
+    a.download = `Ingresos_Rectorado_${selectedDate}.xlsx`;
     a.click();
     window.URL.revokeObjectURL(url);
 }
@@ -674,15 +674,15 @@ function sendDateReportByWhatsApp() {
     const filteredPeople = filterPeopleByDate(selectedDate);
     
     if (filteredPeople.length === 0) {
-        alert("No hay registros de asistencia para la fecha seleccionada");
+        alert("No hay ingresos registrados para la fecha seleccionada");
         return;
     }
     
     const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
     
-    let message = `📄 *INFORME DE ASISTENCIA*\n`;
+    let message = `🏛️ *REGISTRO DE INGRESOS AL RECTORADO*\n`;
     message += `📅 *Fecha:* ${formattedDate}\n\n`;
-    message += `👥 *Total:* ${filteredPeople.length}\n\n`;
+    message += `👥 *Total de visitantes:* ${filteredPeople.length}\n\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     
     filteredPeople.forEach((p, idx) => {
@@ -693,8 +693,8 @@ function sendDateReportByWhatsApp() {
         }) : "-";
         
         message += `${idx + 1}. *${p.name}*\n`;
-        message += `   📍 Destino: ${p.destination || "-"}\n`;
-        message += `   🕐 Entrada: ${entryTime}\n\n`;
+        message += `   🏢 Destino: ${p.destination || "-"}\n`;
+        message += `   🕐 Ingreso: ${entryTime}\n\n`;
     });
     
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
@@ -719,7 +719,7 @@ async function generateDatePDF() {
     const filteredPeople = filterPeopleByDate(selectedDate);
     
     if (filteredPeople.length === 0) {
-        alert("No hay registros de asistencia para la fecha seleccionada");
+        alert("No hay ingresos registrados para la fecha seleccionada");
         return;
     }
     
@@ -730,14 +730,14 @@ async function generateDatePDF() {
     
     // Título
     doc.setFontSize(16);
-    doc.text('LISTA DE ASISTENCIA', 105, 20, { align: 'center' });
+    doc.text('REGISTRO DE INGRESOS AL RECTORADO', 105, 20, { align: 'center' });
     
     doc.setFontSize(12);
     doc.text(`Fecha: ${formattedDate}`, 105, 28, { align: 'center' });
     
     // Resumen
     doc.setFontSize(10);
-    doc.text(`Total: ${filteredPeople.length}`, 105, 36, { align: 'center' });
+    doc.text(`Total de visitantes: ${filteredPeople.length}`, 105, 36, { align: 'center' });
     
     // Línea separadora
     doc.line(20, 40, 190, 40);
@@ -750,8 +750,8 @@ async function generateDatePDF() {
     doc.setFont(undefined, 'bold');
     doc.text('#', 20, y);
     doc.text('Nombre', 30, y);
-    doc.text('Destino', 100, y);
-    doc.text('Entrada', 160, y);
+    doc.text('Oficina/Unidad', 100, y);
+    doc.text('Hora', 165, y);
     
     y += 5;
     doc.line(20, y, 190, y);
@@ -777,7 +777,7 @@ async function generateDatePDF() {
         doc.text(`${idx + 1}`, 20, y);
         doc.text(nombre, 30, y);
         doc.text(destino, 100, y);
-        doc.text(entryTime, 160, y);
+        doc.text(entryTime, 165, y);
         
         y += 6;
     });
@@ -790,9 +790,9 @@ async function generateDatePDF() {
     y += 8;
     doc.setFont(undefined, 'bold');
     doc.setFontSize(10);
-    doc.text(`Total registrados: ${filteredPeople.length}`, 20, y);
+    doc.text(`Total de visitantes: ${filteredPeople.length}`, 20, y);
     
-    doc.save(`Asistencia_${selectedDate}.pdf`);
+    doc.save(`Ingresos_Rectorado_${selectedDate}.pdf`);
 }
 
 // ============================
@@ -804,7 +804,7 @@ function exportBaseJSON() {
     const url = URL.createObjectURL(dataBlob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "asistencia_base.json";
+    a.download = "registro_ingresos_rectorado.json";
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
@@ -835,9 +835,9 @@ function loadBaseJSON(event) {
             renderFilteredPersons();
             updateStats();
             updateDateFilterInfo();
-            alert("✅ Base cargada exitosamente.");
+            alert("✅ Datos cargados exitosamente.");
         } catch (err) {
-            alert("❌ Error al cargar JSON: " + err.message);
+            alert("❌ Error al cargar datos: " + err.message);
         }
     };
     reader.readAsText(file);
@@ -845,7 +845,7 @@ function loadBaseJSON(event) {
 }
 
 // ============================
-// Exportar informe de asistencia general (Excel)
+// Exportar informe general (Excel)
 // ============================
 async function exportAttendanceReport() {
     if (peopleBase.length === 0) {
@@ -856,11 +856,11 @@ async function exportAttendanceReport() {
     const ExcelJS = window.ExcelJS || await import('https://cdn.jsdelivr.net/npm/exceljs@4.3.0/dist/exceljs.min.js');
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Asistencia');
+    const worksheet = workbook.addWorksheet('Ingresos');
 
     worksheet.mergeCells('A1:D1');
     const titleCell = worksheet.getCell('A1');
-    titleCell.value = 'LISTA DE ASISTENCIA GENERAL';
+    titleCell.value = 'REGISTRO GENERAL DE INGRESOS AL RECTORADO';
     titleCell.font = { bold: true, size: 14 };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     titleCell.fill = {
@@ -890,7 +890,7 @@ async function exportAttendanceReport() {
         };
     });
 
-    const headers = ['#', 'Nombre completo', 'Destino/Unidad', 'Fecha y hora de entrada'];
+    const headers = ['#', 'Nombre del Visitante', 'Oficina/Unidad', 'Fecha y Hora de Ingreso'];
     worksheet.getRow(2).values = headers;
 
     headers.forEach((header, index) => {
@@ -932,7 +932,7 @@ async function exportAttendanceReport() {
     const summaryRow = row + 1;
     worksheet.getRow(summaryRow).values = [
         '',
-        `TOTAL: ${peopleBase.length}`,
+        `TOTAL VISITANTES: ${peopleBase.length}`,
         '',
         ''
     ];
@@ -964,7 +964,7 @@ async function exportAttendanceReport() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'LISTA_DE_ASISTENCIA_GENERAL.xlsx';
+    a.download = 'REGISTRO_INGRESOS_RECTORADO.xlsx';
     a.click();
     window.URL.revokeObjectURL(url);
 }
@@ -978,8 +978,8 @@ function sendReportByWhatsApp() {
         return;
     }
 
-    let message = `📋 *INFORME DE INGRESOS RECTORADO GENERAL*\n\n`;
-    message += `👥 *Total:* ${peopleBase.length}\n\n`;
+    let message = `🏛️ *REGISTRO DE INGRESOS AL RECTORADO*\n\n`;
+    message += `👥 *Total de visitantes:* ${peopleBase.length}\n\n`;
     message += `━━━━━━━━━━━━━━━━━━\n\n`;
 
     const MAX = 20;
@@ -995,7 +995,7 @@ function sendReportByWhatsApp() {
         }) : "-";
 
         message += `${idx + 1}. *${p.name}*\n`;
-        message += `   📍 Destino: ${p.destination || "-"}\n`;
+        message += `   🏢 Destino: ${p.destination || "-"}\n`;
         message += `   🕐 ${entryTime}\n\n`;
     });
 
