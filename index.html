@@ -683,7 +683,7 @@ function sendDateReportByWhatsApp() {
     let message = `🏛️ *REGISTRO DE INGRESOS AL RECTORADO*\n`;
     message += `📅 *Fecha:* ${formattedDate}\n\n`;
     message += `👥 *Total de visitantes:* ${filteredPeople.length}\n\n`;
-    message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
+    message += `━━━━━━━━━━━━━━━━━━\n\n`;
     
     filteredPeople.forEach((p, idx) => {
         const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleTimeString("es-ES", {
@@ -697,7 +697,7 @@ function sendDateReportByWhatsApp() {
         message += `   🕐 Ingreso: ${entryTime}\n\n`;
     });
     
-    message += `━━━━━━━━━━━━━━━━━━━━\n`;
+    message += `━━━━━━━━━━━━━━━━━━\n`;
     message += `📊 Generado: ${new Date().toLocaleString("es-ES")}`;
     
     const encoded = encodeURIComponent(message);
