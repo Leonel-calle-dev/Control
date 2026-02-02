@@ -86,6 +86,17 @@ body{
   margin-top: 5px;
 }
 
+.destination-item{
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:12px;
+  margin-bottom:10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(30, 41, 59, 0.3);
+}
+
 .text-muted{color:rgb(117, 116, 116) !important;}
 
 .btn-group-custom {
@@ -98,6 +109,7 @@ body{
   font-size: 0.85rem;
   color: var(--muted);
   margin-top: 5px;
+  word-break: break-word;
 }
 
 #newDestinationInput {
@@ -144,6 +156,7 @@ body{
 <ul class="nav nav-tabs mb-3">
 <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#control">Registro de Ingresos</button></li>
 <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#register">Nuevo Ingreso</button></li>
+<li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#destinations">Gestionar Destinos</button></li>
 </ul>
 
 <div class="tab-content">
@@ -220,6 +233,40 @@ body{
 </div>
 </div>
 
+<!-- DESTINATIONS MANAGEMENT -->
+<div class="tab-pane fade" id="destinations">
+<div class="row justify-content-center">
+<div class="col-md-8">
+<div class="card bg-dark text-light">
+<div class="card-body">
+<h5 class="mb-3"><i class="fas fa-building"></i> Gestionar Destinos/Unidades</h5>
+<div class="alert alert-info">
+  <i class="fas fa-info-circle"></i> Aquí puedes agregar o eliminar destinos que aparecerán en el formulario de registro.
+</div>
+
+<!-- Agregar nuevo destino -->
+<div class="mb-4">
+  <label class="form-label"><i class="fas fa-plus-circle"></i> Agregar Nuevo Destino</label>
+  <div class="input-group">
+    <input class="form-control" id="newDestinationManual" placeholder="Ej: Vicerrectoría Académica">
+    <button class="btn btn-success" onclick="addDestinationManual()">
+      <i class="fas fa-plus"></i> Agregar
+    </button>
+  </div>
+</div>
+
+<!-- Lista de destinos -->
+<div class="mb-3">
+  <h6><i class="fas fa-list"></i> Destinos Registrados (<span id="destinationCount">0</span>)</h6>
+  <div id="destinationsList"></div>
+</div>
+
+</div>
+</div>
+</div>
+</div>
+</div>
+
 </div>
 </div>
 </div>
@@ -229,9 +276,10 @@ body{
 <script>
 
 // ============================
-// Estado inicial de la base
+// Estado inicial
 // ============================
 let peopleBase = JSON.parse(localStorage.getItem("attendanceBase")) || [];
+let destinationsBase = JSON.parse(localStorage.getItem("destinationsBase")) || [];
 
 // ============================
 // Al cargar la página
@@ -243,6 +291,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     loadDestinations();
     renderPersons(peopleBase);
+    renderDestinationsList();
     updateStats();
     updateDateFilterInfo();
 });
@@ -253,14 +302,11 @@ document.addEventListener("DOMContentLoaded", () => {
 function loadDestinations() {
     const select = document.getElementById("selectDestination");
     
-    // Obtener destinos únicos de todos los registros
-    const destinations = [...new Set(peopleBase.map(p => p.destination).filter(d => d))];
-    
     // Limpiar opciones excepto la primera
     select.innerHTML = '<option value="">-- Seleccionar destino --</option>';
     
-    // Agregar destinos existentes ordenados alfabéticamente
-    destinations.sort().forEach(dest => {
+    // Agregar destinos de la base ordenados alfabéticamente
+    destinationsBase.sort().forEach(dest => {
         const option = document.createElement("option");
         option.value = dest;
         option.textContent = dest;
@@ -272,6 +318,85 @@ function loadDestinations() {
     optionOther.value = "NUEVO";
     optionOther.textContent = "➕ Otro (nuevo destino)";
     select.appendChild(optionOther);
+}
+
+// ============================
+// Renderizar lista de destinos
+// ============================
+function renderDestinationsList() {
+    const container = document.getElementById("destinationsList");
+    const countSpan = document.getElementById("destinationCount");
+    
+    container.innerHTML = "";
+    countSpan.textContent = destinationsBase.length;
+    
+    if (destinationsBase.length === 0) {
+        container.innerHTML = `<p class="text-muted text-center">No hay destinos registrados. Agrega uno arriba.</p>`;
+        return;
+    }
+    
+    // Ordenar alfabéticamente
+    const sortedDestinations = [...destinationsBase].sort();
+    
+    sortedDestinations.forEach((dest, index) => {
+        const item = document.createElement("div");
+        item.className = "destination-item";
+        item.innerHTML = `
+            <div>
+                <i class="fas fa-building text-primary"></i>
+                <strong>${dest}</strong>
+            </div>
+            <button class="btn btn-sm btn-danger" onclick="deleteDestination('${dest.replace(/'/g, "\\'")}')">
+                <i class="fas fa-trash"></i>
+            </button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+// ============================
+// Agregar destino manual
+// ============================
+function addDestinationManual() {
+    const input = document.getElementById("newDestinationManual");
+    const newDest = input.value.trim();
+    
+    if (!newDest) {
+        alert("Por favor, ingrese un nombre de destino.");
+        return;
+    }
+    
+    if (destinationsBase.includes(newDest)) {
+        alert("Este destino ya existe.");
+        return;
+    }
+    
+    destinationsBase.push(newDest);
+    saveDestinations();
+    loadDestinations();
+    renderDestinationsList();
+    
+    input.value = "";
+    alert(`✅ Destino "${newDest}" agregado exitosamente.`);
+}
+
+// ============================
+// Eliminar destino
+// ============================
+function deleteDestination(dest) {
+    if (confirm(`¿Está seguro de eliminar el destino "${dest}"?`)) {
+        destinationsBase = destinationsBase.filter(d => d !== dest);
+        saveDestinations();
+        loadDestinations();
+        renderDestinationsList();
+    }
+}
+
+// ============================
+// Guardar destinos
+// ============================
+function saveDestinations() {
+    localStorage.setItem("destinationsBase", JSON.stringify(destinationsBase));
 }
 
 // ============================
@@ -324,8 +449,8 @@ function renderPersons(list) {
     }
 
     list.forEach((person, index) => {
-        // Formatear entrada (siempre existe)
-        const entryInfo = `<div class="time-info"><i class="fas fa-clock text-success"></i> Ingreso: ${formatDateTime(person.entryTime)}</div>`;
+        // Formatear entrada
+        const entryInfo = `<div class="time-info"><i class="fas fa-clock"></i> ${formatDateTime(person.entryTime)}</div>`;
         
         // Mostrar destino
         const destinationBadge = person.destination ? 
@@ -334,13 +459,14 @@ function renderPersons(list) {
         const card = document.createElement("div");
         card.className = "person-card";
         card.innerHTML = `
-            <div class="d-flex justify-content-between align-items-start">
-                <div>
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                <div style="flex: 1; min-width: 0;">
                     <strong>${index + 1}. ${person.name}</strong>
+                    <br>
                     ${destinationBadge}
                     ${entryInfo}
                 </div>
-                <div class="text-end">
+                <div class="text-end" style="flex-shrink: 0;">
                     <span class="status-badge"><i class="fas fa-check-circle"></i> Registrado</span><br>
                     <button class="btn btn-sm btn-danger mt-2" onclick="deletePerson(${index})">
                         <i class="fas fa-trash"></i> Eliminar
@@ -374,7 +500,6 @@ function deletePerson(index) {
     if (confirm(`¿Está seguro de eliminar el registro de ${peopleBase[index].name}?`)) {
         peopleBase.splice(index, 1);
         saveToLocalStorage();
-        loadDestinations(); // Actualizar lista de destinos
         renderFilteredPersons();
         updateStats();
         updateDateFilterInfo();
@@ -411,10 +536,9 @@ function renderFilteredPersons() {
 function filterPeopleByDate(targetDate) {
     if (!targetDate) return peopleBase;
     
-    // Crear fecha objetivo en zona horaria local
     const targetParts = targetDate.split('-');
     const targetYear = parseInt(targetParts[0]);
-    const targetMonth = parseInt(targetParts[1]) - 1; // Mes en JS es 0-indexed
+    const targetMonth = parseInt(targetParts[1]) - 1;
     const targetDay = parseInt(targetParts[2]);
     
     return peopleBase.filter(p => {
@@ -444,7 +568,7 @@ function clearDateFilter() {
 }
 
 // ============================
-// Registrar persona (CON ENTRADA AUTOMÁTICA)
+// Registrar persona
 // ============================
 function addPerson() {
     const name = document.getElementById("inputName").value.trim();
@@ -465,6 +589,12 @@ function addPerson() {
             alert("Por favor, ingrese el destino.");
             return;
         }
+        
+        // Agregar a la base de destinos si no existe
+        if (!destinationsBase.includes(destination)) {
+            destinationsBase.push(destination);
+            saveDestinations();
+        }
     } else {
         destination = selectDestination.value.trim();
         if (!destination) {
@@ -478,12 +608,13 @@ function addPerson() {
     const newPerson = {
         name,
         destination,
-        entryTime: now // Entrada automática al registrar
+        entryTime: now
     };
 
     peopleBase.push(newPerson);
     saveToLocalStorage();
-    loadDestinations(); // Actualizar lista de destinos
+    loadDestinations();
+    renderDestinationsList();
     renderFilteredPersons();
     updateStats();
     updateDateFilterInfo();
@@ -541,7 +672,6 @@ async function generateDateReport() {
     
     const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
     
-    // TÍTULO
     worksheet.mergeCells('A1:D1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = `REGISTRO DE INGRESOS AL RECTORADO - ${formattedDate}`;
@@ -574,7 +704,6 @@ async function generateDateReport() {
         };
     });
     
-    // ENCABEZADOS
     const headers = ['#', 'Nombre del Visitante', 'Oficina/Unidad', 'Hora de Ingreso'];
     worksheet.getRow(2).values = headers;
     
@@ -595,7 +724,6 @@ async function generateDateReport() {
         };
     });
     
-    // DATOS
     let row = 3;
     filteredPeople.forEach((p, idx) => {
         const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleString("es-ES", {
@@ -619,7 +747,6 @@ async function generateDateReport() {
         row++;
     });
     
-    // RESUMEN
     const summaryRow = row + 1;
     worksheet.getRow(summaryRow).values = [
         '',
@@ -683,7 +810,7 @@ function sendDateReportByWhatsApp() {
     let message = `🏛️ *REGISTRO DE INGRESOS AL RECTORADO*\n`;
     message += `📅 *Fecha:* ${formattedDate}\n\n`;
     message += `👥 *Total de visitantes:* ${filteredPeople.length}\n\n`;
-    message += `━━━━━━━━━━━━━━━━━━\n\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     
     filteredPeople.forEach((p, idx) => {
         const entryTime = p.entryTime ? new Date(p.entryTime).toLocaleTimeString("es-ES", {
@@ -697,7 +824,7 @@ function sendDateReportByWhatsApp() {
         message += `   🕐 Ingreso: ${entryTime}\n\n`;
     });
     
-    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
     message += `📊 Generado: ${new Date().toLocaleString("es-ES")}`;
     
     const encoded = encodeURIComponent(message);
@@ -728,25 +855,20 @@ async function generateDatePDF() {
     
     const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
     
-    // Título
     doc.setFontSize(16);
     doc.text('REGISTRO DE INGRESOS AL RECTORADO', 105, 20, { align: 'center' });
     
     doc.setFontSize(12);
     doc.text(`Fecha: ${formattedDate}`, 105, 28, { align: 'center' });
     
-    // Resumen
     doc.setFontSize(10);
     doc.text(`Total de visitantes: ${filteredPeople.length}`, 105, 36, { align: 'center' });
     
-    // Línea separadora
     doc.line(20, 40, 190, 40);
     
-    // Tabla
     let y = 50;
     doc.setFontSize(9);
     
-    // Encabezados
     doc.setFont(undefined, 'bold');
     doc.text('#', 20, y);
     doc.text('Nombre', 30, y);
@@ -757,7 +879,6 @@ async function generateDatePDF() {
     doc.line(20, y, 190, y);
     y += 5;
     
-    // Datos
     doc.setFont(undefined, 'normal');
     filteredPeople.forEach((p, idx) => {
         if (y > 270) {
@@ -782,11 +903,9 @@ async function generateDatePDF() {
         y += 6;
     });
     
-    // Línea final
     y += 2;
     doc.line(20, y, 190, y);
     
-    // Pie de página
     y += 8;
     doc.setFont(undefined, 'bold');
     doc.setFontSize(10);
@@ -831,7 +950,6 @@ function loadBaseJSON(event) {
 
             peopleBase = loaded;
             saveToLocalStorage();
-            loadDestinations();
             renderFilteredPersons();
             updateStats();
             updateDateFilterInfo();
@@ -980,7 +1098,7 @@ function sendReportByWhatsApp() {
 
     let message = `🏛️ *REGISTRO DE INGRESOS AL RECTORADO*\n\n`;
     message += `👥 *Total de visitantes:* ${peopleBase.length}\n\n`;
-    message += `━━━━━━━━━━━━━━━━━━\n\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
 
     const MAX = 20;
     const list = peopleBase.slice(0, MAX);
@@ -1003,7 +1121,7 @@ function sendReportByWhatsApp() {
         message += `... y ${peopleBase.length - MAX} más.\n\n`;
     }
 
-    message += `━━━━━━━━━━━━━━━━━━\n`;
+    message += `━━━━━━━━━━━━━━━━━━━━\n`;
     message += `📅 Generado: ${new Date().toLocaleString("es-ES")}`;
 
     const encoded = encodeURIComponent(message);
