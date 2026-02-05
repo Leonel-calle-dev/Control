@@ -124,6 +124,19 @@ body{
 #newDestinationInput {
   display: none;
 }
+
+.modal-content {
+  background: #1e293b;
+  border: 1px solid var(--border);
+}
+
+.modal-header {
+  border-bottom: 1px solid var(--border);
+}
+
+.modal-footer {
+  border-top: 1px solid var(--border);
+}
 </style>
 </head>
 
@@ -175,37 +188,57 @@ body{
 <!-- CONTROL -->
 <div class="tab-pane fade show active" id="control">
 
+<!-- FILTROS -->
+<div class="filter-card">
+  <div class="row g-3">
+    <!-- Filtro de fecha para la tabla -->
+    <div class="col-md-4">
+      <label class="form-label"><i class="fas fa-calendar"></i> Filtrar Tabla por Fecha</label>
+      <input type="date" id="tableFilterDate" class="form-control" onchange="applyTableFilter()">
+      <small class="text-muted">Deja vacío para ver todos</small>
+    </div>
+    
+    <!-- Búsqueda por texto -->
+    <div class="col-md-4">
+      <label class="form-label"><i class="fas fa-search"></i> Buscar</label>
+      <input id="searchInput" class="form-control" placeholder="Buscar por nombre o destino" 
+             oninput="applyTableFilter()">
+    </div>
+    
+    <!-- Botón limpiar filtros -->
+    <div class="col-md-4">
+      <label class="form-label">&nbsp;</label>
+      <button class="btn btn-secondary w-100" onclick="clearTableFilters()">
+        <i class="fas fa-times"></i> Limpiar Filtros
+      </button>
+    </div>
+  </div>
+  <div id="tableFilterInfo" class="mt-2 text-info small"></div>
+</div>
+
 <!-- FILTRO DE FECHA PARA REPORTES -->
 <div class="filter-card">
+  <h6 class="mb-3"><i class="fas fa-file-download"></i> Generar Reportes</h6>
   <div class="row align-items-end">
     <div class="col-md-4">
-      <label class="form-label"><i class="fas fa-calendar"></i> Filtrar por Fecha</label>
+      <label class="form-label"><i class="fas fa-calendar"></i> Fecha para Reportes</label>
       <input type="date" id="reportDate" class="form-control" value="">
     </div>
     <div class="col-md-8">
       <div class="btn-group-custom">
         <button class="btn btn-info" onclick="generateDateReport()">
-          <i class="fas fa-file-alt"></i> Reporte del Día
+          <i class="fas fa-file-alt"></i> Excel
         </button>
         <button class="btn btn-success" onclick="sendDateReportByWhatsApp()">
-          <i class="fab fa-whatsapp"></i> WhatsApp del Día
+          <i class="fab fa-whatsapp"></i> WhatsApp
         </button>
         <button class="btn btn-warning" onclick="generateDatePDF()">
-          <i class="fas fa-file-pdf"></i> PDF del Día
-        </button>
-        <button class="btn btn-secondary" onclick="clearDateFilter()">
-          <i class="fas fa-times"></i> Ver Todos
+          <i class="fas fa-file-pdf"></i> PDF
         </button>
       </div>
     </div>
   </div>
   <div id="dateFilterInfo" class="mt-2 text-info small"></div>
-</div>
-
-<!-- BUSCADOR -->
-<div class="mb-3">
-  <input id="searchInput" class="form-control" placeholder="Buscar por nombre o destino" 
-         oninput="filterPeople(this.value)">
 </div>
 
 <div id="personsList"></div>
@@ -282,6 +315,75 @@ body{
 </div>
 </div>
 
+<!-- MODAL EDITAR REGISTRO -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="fas fa-edit"></i> Editar Registro</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editIndex">
+        
+        <div class="mb-3">
+          <label class="form-label"><i class="fas fa-user"></i> Nombre del Visitante</label>
+          <input class="form-control" id="editName">
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label"><i class="fas fa-map-marker-alt"></i> Destino</label>
+          <select class="form-select" id="editDestination" onchange="handleEditDestinationChange()">
+            <option value="">-- Seleccionar destino --</option>
+          </select>
+        </div>
+        
+        <div class="mb-3" id="editNewDestinationInput" style="display:none;">
+          <label class="form-label">Nuevo Destino</label>
+          <input class="form-control" id="editNewDestination">
+        </div>
+        
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label"><i class="fas fa-sign-in-alt"></i> Fecha de Ingreso</label>
+            <input type="date" class="form-control" id="editEntryDate">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label"><i class="fas fa-clock"></i> Hora de Ingreso</label>
+            <input type="time" class="form-control" id="editEntryTime" step="1">
+          </div>
+        </div>
+        
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label"><i class="fas fa-sign-out-alt"></i> Fecha de Salida</label>
+            <input type="date" class="form-control" id="editExitDate">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label"><i class="fas fa-clock"></i> Hora de Salida</label>
+            <input type="time" class="form-control" id="editExitTime" step="1">
+          </div>
+        </div>
+        
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="editClearExit">
+          <label class="form-check-label" for="editClearExit">
+            Borrar hora de salida (marcar como "Dentro")
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          <i class="fas fa-times"></i> Cancelar
+        </button>
+        <button type="button" class="btn btn-primary" onclick="saveEdit()">
+          <i class="fas fa-save"></i> Guardar Cambios
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
@@ -291,44 +393,105 @@ body{
 // ============================
 let peopleBase = JSON.parse(localStorage.getItem("attendanceBase")) || [];
 let destinationsBase = JSON.parse(localStorage.getItem("destinationsBase")) || [];
+let currentFilteredList = [];
 
 // ============================
 // Al cargar la página
 // ============================
 document.addEventListener("DOMContentLoaded", () => {
-    // Establecer fecha de hoy por defecto
     const today = new Date().toISOString().split('T')[0];
     document.getElementById("reportDate").value = today;
     
     loadDestinations();
-    renderPersons(peopleBase);
+    currentFilteredList = [...peopleBase];
+    renderPersons(currentFilteredList);
     renderDestinationsList();
     updateStats();
     updateDateFilterInfo();
 });
 
 // ============================
+// Aplicar filtros de tabla
+// ============================
+function applyTableFilter() {
+    const dateFilter = document.getElementById("tableFilterDate").value;
+    const searchQuery = document.getElementById("searchInput").value.toLowerCase().trim();
+    
+    let filtered = [...peopleBase];
+    
+    // Filtrar por fecha
+    if (dateFilter) {
+        filtered = filterPeopleByDate(dateFilter, filtered);
+    }
+    
+    // Filtrar por búsqueda
+    if (searchQuery) {
+        filtered = filtered.filter(p => 
+            p.name.toLowerCase().includes(searchQuery) ||
+            (p.destination && p.destination.toLowerCase().includes(searchQuery))
+        );
+    }
+    
+    currentFilteredList = filtered;
+    renderPersons(currentFilteredList);
+    updateTableFilterInfo(dateFilter, filtered.length);
+}
+
+// ============================
+// Actualizar info de filtro de tabla
+// ============================
+function updateTableFilterInfo(date, count) {
+    const infoDiv = document.getElementById("tableFilterInfo");
+    
+    if (date) {
+        const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString('es-ES');
+        if (count > 0) {
+            infoDiv.innerHTML = `<i class="fas fa-filter"></i> Mostrando ${count} registro(s) del ${formattedDate}`;
+        } else {
+            infoDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> No hay registros para el ${formattedDate}`;
+        }
+    } else {
+        if (count < peopleBase.length) {
+            infoDiv.innerHTML = `<i class="fas fa-filter"></i> Mostrando ${count} de ${peopleBase.length} registros`;
+        } else {
+            infoDiv.innerHTML = "";
+        }
+    }
+}
+
+// ============================
+// Limpiar filtros de tabla
+// ============================
+function clearTableFilters() {
+    document.getElementById("tableFilterDate").value = "";
+    document.getElementById("searchInput").value = "";
+    currentFilteredList = [...peopleBase];
+    renderPersons(currentFilteredList);
+    document.getElementById("tableFilterInfo").innerHTML = "";
+}
+
+// ============================
 // Cargar destinos en el select
 // ============================
 function loadDestinations() {
     const select = document.getElementById("selectDestination");
+    const editSelect = document.getElementById("editDestination");
     
-    // Limpiar opciones excepto la primera
-    select.innerHTML = '<option value="">-- Seleccionar destino --</option>';
-    
-    // Agregar destinos de la base ordenados alfabéticamente
-    destinationsBase.sort().forEach(dest => {
-        const option = document.createElement("option");
-        option.value = dest;
-        option.textContent = dest;
-        select.appendChild(option);
+    [select, editSelect].forEach(sel => {
+        sel.innerHTML = '<option value="">-- Seleccionar destino --</option>';
+        
+        destinationsBase.sort().forEach(dest => {
+            const option = document.createElement("option");
+            option.value = dest;
+            option.textContent = dest;
+            sel.appendChild(option);
+        });
+        
+        const optionOther = document.createElement("option");
+        optionOther.value = "NUEVO";
+        optionOther.textContent = "➕ Otro (nuevo destino)";
+        sel.appendChild(optionOther);
     });
-    
-    // Agregar opción "Otro (nuevo)"
-    const optionOther = document.createElement("option");
-    optionOther.value = "NUEVO";
-    optionOther.textContent = "➕ Otro (nuevo destino)";
-    select.appendChild(optionOther);
 }
 
 // ============================
@@ -346,10 +509,9 @@ function renderDestinationsList() {
         return;
     }
     
-    // Ordenar alfabéticamente
     const sortedDestinations = [...destinationsBase].sort();
     
-    sortedDestinations.forEach((dest, index) => {
+    sortedDestinations.forEach((dest) => {
         const item = document.createElement("div");
         item.className = "destination-item";
         item.innerHTML = `
@@ -429,7 +591,25 @@ function handleDestinationChange() {
 }
 
 // ============================
-// Actualizar info del filtro de fecha
+// Manejar cambio en select de destino (edición)
+// ============================
+function handleEditDestinationChange() {
+    const select = document.getElementById("editDestination");
+    const newDestinationDiv = document.getElementById("editNewDestinationInput");
+    const newDestinationInput = document.getElementById("editNewDestination");
+    
+    if (select.value === "NUEVO") {
+        newDestinationDiv.style.display = "block";
+        newDestinationInput.value = "";
+        newDestinationInput.focus();
+    } else {
+        newDestinationDiv.style.display = "none";
+        newDestinationInput.value = "";
+    }
+}
+
+// ============================
+// Actualizar info del filtro de fecha para reportes
 // ============================
 function updateDateFilterInfo() {
     const selectedDate = document.getElementById("reportDate").value;
@@ -440,10 +620,10 @@ function updateDateFilterInfo() {
     
     if (filtered.length > 0) {
         const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
-        infoDiv.innerHTML = `<i class="fas fa-info-circle"></i> Mostrando ${filtered.length} ingreso(s) del ${formattedDate}`;
+        infoDiv.innerHTML = `<i class="fas fa-info-circle"></i> ${filtered.length} registro(s) disponibles para reportes del ${formattedDate}`;
     } else {
         const formattedDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('es-ES');
-        infoDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> No hay ingresos registrados para el ${formattedDate}`;
+        infoDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> No hay registros para generar reportes del ${formattedDate}`;
     }
 }
 
@@ -455,27 +635,24 @@ function renderPersons(list) {
     container.innerHTML = "";
 
     if (list.length === 0) {
-        container.innerHTML = `<p class="text-muted">No hay ingresos registrados.</p>`;
+        container.innerHTML = `<p class="text-muted">No hay registros que coincidan con los filtros.</p>`;
         return;
     }
 
-    list.forEach((person, index) => {
-        // Determinar estado
+    list.forEach((person) => {
+        const originalIndex = peopleBase.indexOf(person);
         const hasExit = person.exitTime ? true : false;
         const statusBadgeClass = hasExit ? "status-badge-exit" : "status-badge";
         const statusText = hasExit ? "Salió" : "Dentro";
         const statusIcon = hasExit ? "fa-sign-out-alt" : "fa-check-circle";
         
-        // Formatear entrada
         const entryInfo = `<div class="time-info"><i class="fas fa-sign-in-alt text-success"></i> Ingreso: ${formatDateTime(person.entryTime)}</div>`;
         
-        // Formatear salida si existe
         let exitInfo = "";
         if (hasExit) {
             exitInfo = `<div class="time-info"><i class="fas fa-sign-out-alt text-warning"></i> Salida: ${formatDateTime(person.exitTime)}</div>`;
         }
         
-        // Mostrar destino
         const destinationBadge = person.destination ? 
             `<span class="destination-badge"><i class="fas fa-building"></i> ${person.destination}</span>` : '';
 
@@ -484,7 +661,7 @@ function renderPersons(list) {
         card.innerHTML = `
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
                 <div style="flex: 1; min-width: 0;">
-                    <strong>${index + 1}. ${person.name}</strong>
+                    <strong>${originalIndex + 1}. ${person.name}</strong>
                     <br>
                     ${destinationBadge}
                     ${entryInfo}
@@ -493,10 +670,13 @@ function renderPersons(list) {
                 <div class="text-end" style="flex-shrink: 0;">
                     <span class="${statusBadgeClass}"><i class="fas ${statusIcon}"></i> ${statusText}</span><br>
                     <div class="btn-group mt-2" role="group">
-                        ${!hasExit ? `<button class="btn btn-sm btn-warning" onclick="markExit(${index})">
-                            <i class="fas fa-sign-out-alt"></i> Marcar Salida
+                        <button class="btn btn-sm btn-info" onclick="openEditModal(${originalIndex})" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        ${!hasExit ? `<button class="btn btn-sm btn-warning" onclick="markExit(${originalIndex})" title="Marcar Salida">
+                            <i class="fas fa-sign-out-alt"></i>
                         </button>` : ''}
-                        <button class="btn btn-sm btn-danger" onclick="deletePerson(${index})">
+                        <button class="btn btn-sm btn-danger" onclick="deletePerson(${originalIndex})" title="Eliminar">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -523,6 +703,118 @@ function formatDateTime(isoString) {
 }
 
 // ============================
+// Abrir modal de edición
+// ============================
+function openEditModal(index) {
+    const person = peopleBase[index];
+    
+    document.getElementById("editIndex").value = index;
+    document.getElementById("editName").value = person.name;
+    
+    // Cargar destino
+    const editDestSelect = document.getElementById("editDestination");
+    if (destinationsBase.includes(person.destination)) {
+        editDestSelect.value = person.destination;
+    } else {
+        editDestSelect.value = "NUEVO";
+        document.getElementById("editNewDestinationInput").style.display = "block";
+        document.getElementById("editNewDestination").value = person.destination;
+    }
+    
+    // Cargar fecha y hora de entrada
+    if (person.entryTime) {
+        const entryDate = new Date(person.entryTime);
+        document.getElementById("editEntryDate").value = entryDate.toISOString().split('T')[0];
+        document.getElementById("editEntryTime").value = entryDate.toTimeString().split(' ')[0];
+    }
+    
+    // Cargar fecha y hora de salida
+    if (person.exitTime) {
+        const exitDate = new Date(person.exitTime);
+        document.getElementById("editExitDate").value = exitDate.toISOString().split('T')[0];
+        document.getElementById("editExitTime").value = exitDate.toTimeString().split(' ')[0];
+    } else {
+        document.getElementById("editExitDate").value = "";
+        document.getElementById("editExitTime").value = "";
+    }
+    
+    document.getElementById("editClearExit").checked = false;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editModal'));
+    modal.show();
+}
+
+// ============================
+// Guardar edición
+// ============================
+function saveEdit() {
+    const index = parseInt(document.getElementById("editIndex").value);
+    const name = document.getElementById("editName").value.trim();
+    const editDestSelect = document.getElementById("editDestination");
+    const editNewDestInput = document.getElementById("editNewDestination");
+    const entryDate = document.getElementById("editEntryDate").value;
+    const entryTime = document.getElementById("editEntryTime").value;
+    const exitDate = document.getElementById("editExitDate").value;
+    const exitTime = document.getElementById("editExitTime").value;
+    const clearExit = document.getElementById("editClearExit").checked;
+    
+    if (!name) {
+        alert("El nombre no puede estar vacío.");
+        return;
+    }
+    
+    // Determinar destino
+    let destination = "";
+    if (editDestSelect.value === "NUEVO") {
+        destination = editNewDestInput.value.trim();
+        if (!destination) {
+            alert("Por favor, ingrese el destino.");
+            return;
+        }
+        if (!destinationsBase.includes(destination)) {
+            destinationsBase.push(destination);
+            saveDestinations();
+        }
+    } else {
+        destination = editDestSelect.value;
+        if (!destination) {
+            alert("Por favor, seleccione un destino.");
+            return;
+        }
+    }
+    
+    // Crear fecha/hora de entrada
+    if (!entryDate || !entryTime) {
+        alert("La fecha y hora de ingreso son obligatorias.");
+        return;
+    }
+    const entryDateTime = new Date(`${entryDate}T${entryTime}`).toISOString();
+    
+    // Crear fecha/hora de salida
+    let exitDateTime = null;
+    if (!clearExit && exitDate && exitTime) {
+        exitDateTime = new Date(`${exitDate}T${exitTime}`).toISOString();
+    }
+    
+    // Actualizar registro
+    peopleBase[index].name = name;
+    peopleBase[index].destination = destination;
+    peopleBase[index].entryTime = entryDateTime;
+    peopleBase[index].exitTime = exitDateTime;
+    
+    saveToLocalStorage();
+    loadDestinations();
+    renderDestinationsList();
+    applyTableFilter();
+    updateStats();
+    
+    const modal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+    modal.hide();
+    
+    alert("✅ Registro actualizado exitosamente.");
+}
+
+// ============================
 // Marcar salida
 // ============================
 function markExit(index) {
@@ -530,7 +822,7 @@ function markExit(index) {
         const now = new Date().toISOString();
         peopleBase[index].exitTime = now;
         saveToLocalStorage();
-        renderFilteredPersons();
+        applyTableFilter();
         updateStats();
     }
 }
@@ -542,48 +834,24 @@ function deletePerson(index) {
     if (confirm(`¿Está seguro de eliminar el registro de ${peopleBase[index].name}?`)) {
         peopleBase.splice(index, 1);
         saveToLocalStorage();
-        renderFilteredPersons();
+        applyTableFilter();
         updateStats();
         updateDateFilterInfo();
     }
 }
 
 // ============================
-// Filtrar personas (búsqueda)
-// ============================
-function filterPeople(query) {
-    const lowerQuery = query.toLowerCase().trim();
-    const filtered = peopleBase.filter(p => 
-        p.name.toLowerCase().includes(lowerQuery) ||
-        (p.destination && p.destination.toLowerCase().includes(lowerQuery))
-    );
-    renderPersons(filtered);
-}
-
-// ============================
-// Renderizar sin filtro (después de cambios)
-// ============================
-function renderFilteredPersons() {
-    const query = document.getElementById("searchInput").value;
-    if (query) {
-        filterPeople(query);
-    } else {
-        renderPersons(peopleBase);
-    }
-}
-
-// ============================
 // Filtrar personas por fecha
 // ============================
-function filterPeopleByDate(targetDate) {
-    if (!targetDate) return peopleBase;
+function filterPeopleByDate(targetDate, list = peopleBase) {
+    if (!targetDate) return list;
     
     const targetParts = targetDate.split('-');
     const targetYear = parseInt(targetParts[0]);
     const targetMonth = parseInt(targetParts[1]) - 1;
     const targetDay = parseInt(targetParts[2]);
     
-    return peopleBase.filter(p => {
+    return list.filter(p => {
         if (p.entryTime) {
             const entryDate = new Date(p.entryTime);
             const entryYear = entryDate.getFullYear();
@@ -596,17 +864,6 @@ function filterPeopleByDate(targetDate) {
         }
         return false;
     });
-}
-
-// ============================
-// Limpiar filtro de fecha
-// ============================
-function clearDateFilter() {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById("reportDate").value = today;
-    document.getElementById("searchInput").value = "";
-    renderPersons(peopleBase);
-    updateDateFilterInfo();
 }
 
 // ============================
@@ -624,7 +881,6 @@ function addPerson() {
         return;
     }
 
-    // Determinar el destino
     if (selectDestination.value === "NUEVO") {
         destination = newDestinationInput.value.trim();
         if (!destination) {
@@ -632,7 +888,6 @@ function addPerson() {
             return;
         }
         
-        // Agregar a la base de destinos si no existe
         if (!destinationsBase.includes(destination)) {
             destinationsBase.push(destination);
             saveDestinations();
@@ -658,17 +913,15 @@ function addPerson() {
     saveToLocalStorage();
     loadDestinations();
     renderDestinationsList();
-    renderFilteredPersons();
+    applyTableFilter();
     updateStats();
     updateDateFilterInfo();
 
-    // Limpiar
     document.getElementById("inputName").value = "";
     selectDestination.value = "";
     newDestinationInput.value = "";
     document.getElementById("newDestinationInput").style.display = "none";
 
-    // Cambiar pestaña
     const controlTab = new bootstrap.Tab(document.querySelector('.nav-link[data-bs-target="#control"]'));
     controlTab.show();
     
@@ -695,6 +948,7 @@ function updateStats() {
     document.getElementById("totalExit").textContent = exit;
 }
 
+// Continúa en el siguiente mensaje...
 // ============================
 // Generar informe del día (Excel)
 // ============================
@@ -1035,7 +1289,7 @@ function loadBaseJSON(event) {
 
             peopleBase = loaded;
             saveToLocalStorage();
-            renderFilteredPersons();
+            applyTableFilter();
             updateStats();
             updateDateFilterInfo();
             alert("✅ Datos cargados exitosamente.");
@@ -1097,7 +1351,7 @@ async function exportAttendanceReport() {
     worksheet.getRow(2).values = headers;
 
     headers.forEach((header, index) => {
-        const cell = worksheet.getCell(2, index + 1);
+        const cell = worksheet.getRow(2).getCell(index + 1);
         cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.fill = {
@@ -1121,7 +1375,7 @@ async function exportAttendanceReport() {
         worksheet.getRow(row).values = [idx + 1, p.name, p.destination || "-", entryTime, exitTime];
 
         [1, 2, 3, 4, 5].forEach(col => {
-            const cell = worksheet.getCell(row, col);
+            const cell = worksheet.getRow(row).getCell(col);
             cell.border = {
                 top: { style: 'thin' },
                 left: { style: 'thin' },
@@ -1146,7 +1400,7 @@ async function exportAttendanceReport() {
     ];
 
     [1, 2, 3, 4, 5].forEach(col => {
-        const cell = worksheet.getCell(summaryRow, col);
+        const cell = worksheet.getRow(summaryRow).getCell(col);
         cell.font = { bold: true };
         cell.alignment = { horizontal: 'center', vertical: 'middle' };
         cell.fill = {
@@ -1242,4 +1496,5 @@ function sendReportByWhatsApp() {
 
 </body>
 </html>
+
 
